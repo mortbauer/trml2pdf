@@ -22,26 +22,18 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 import copy
+import os
 import io
 import sys
 import xml.dom.minidom
 
+import click
 from reportlab import platypus
 import reportlab
 from reportlab.pdfgen import canvas
-from six import text_type
 
 from . import color
 from . import utils
-
-
-#
-# Change this to UTF-8 if you plan tu use Reportlab's UTF-8 support
-#
-# encoding = 'latin1'
-# use utf8 for default
-encoding = 'UTF-8'
-
 
 def _child_get(node, childs):
     clds = []
@@ -51,7 +43,7 @@ def _child_get(node, childs):
     return clds
 
 
-class _rml_styles(object):
+class RMLStyles(object):
 
     def __init__(self, nodes):
         self.styles = {}
@@ -208,7 +200,7 @@ class _rml_styles(object):
         return self._para_style_update(style, node)
 
 
-class _rml_doc(object):
+class RMLDoc(object):
 
     def __init__(self, data):
         self.dom = xml.dom.minidom.parseString(data)
@@ -221,8 +213,8 @@ class _rml_doc(object):
 
         for node in els:
             for font in node.getElementsByTagName('registerFont'):
-                name = font.getAttribute('fontName').encode('ascii')
-                fname = font.getAttribute('fontFile').encode('ascii')
+                name = font.getAttribute('fontName')
+                fname = font.getAttribute('fontFile')
                 pdfmetrics.registerFont(TTFont(name, fname))
                 addMapping(name, 0, 0, name)  # normal
                 addMapping(name, 0, 1, name)  # italic
@@ -235,24 +227,24 @@ class _rml_doc(object):
             self.docinit(el)
 
         el = self.dom.documentElement.getElementsByTagName('stylesheet')
-        self.styles = _rml_styles(el)
+        self.styles = RMLStyles(el)
 
         el = self.dom.documentElement.getElementsByTagName('template')
         if len(el):
-            pt_obj = _rml_template(out, el[0], self)
+            pt_obj = RMLTemplate(out, el[0], self)
             pt_obj.render(
                 self.dom.documentElement.getElementsByTagName('story')[0])
         else:
             self.canvas = canvas.Canvas(out)
             pd = self.dom.documentElement.getElementsByTagName(
                 'pageDrawing')[0]
-            pd_obj = _rml_canvas(self.canvas, None, self)
+            pd_obj = RMLCanvas(self.canvas, None, self)
             pd_obj.render(pd)
             self.canvas.showPage()
             self.canvas.save()
 
 
-class _rml_canvas(object):
+class RMLCanvas(object):
 
     def __init__(self, canvas, doc_tmpl=None, doc=None):
         self.canvas = canvas
@@ -270,7 +262,7 @@ class _rml_canvas(object):
                 rc += n.data
             elif (n.nodeType == node.TEXT_NODE):
                 rc += n.data
-        return rc.encode(encoding)
+        return rc
 
     def _drawString(self, node):
         self.canvas.drawString(
@@ -334,7 +326,7 @@ class _rml_canvas(object):
             'y')), r=utils.unit_get(node.getAttribute('radius')), **utils.attr_get(node, [], {'fill': 'bool', 'stroke': 'bool'}))
 
     def _place(self, node):
-        flows = _rml_flowable(self.doc).render(node)
+        flows = RMLFlowable(self.doc).render(node)
         infos = utils.attr_get(node, ['x', 'y', 'width', 'height'])
 
         infos['y'] += infos['height']
@@ -479,7 +471,7 @@ class _rml_canvas(object):
                         break
 
 
-class _rml_draw(object):
+class RMLDraw(object):
 
     def __init__(self, node, styles):
         self.node = node
@@ -488,12 +480,12 @@ class _rml_draw(object):
 
     def render(self, canvas, doc):
         canvas.saveState()
-        cnv = _rml_canvas(canvas, doc, self.styles)
+        cnv = RMLCanvas(canvas, doc, self.styles)
         cnv.render(self.node)
         canvas.restoreState()
 
 
-class _rml_flowable(object):
+class RMLFlowable(object):
 
     def __init__(self, doc):
         self.doc = doc
@@ -517,7 +509,7 @@ class _rml_flowable(object):
                 rc += n.data
             elif (n.nodeType == node.TEXT_NODE):
                 rc += n.toxml()
-        return text_type(rc.encode(encoding))
+        return rc
 
     def _list(self, node):
         if node.hasAttribute('style'):
@@ -538,8 +530,7 @@ class _rml_flowable(object):
                 else:
                     li_style = reportlab.lib.styles.getSampleStyleSheet()[
                         'Normal']
-                flow = platypus.para.Paragraph(
-                    str(self._textual(li), encoding='UTF-8'), li_style)
+                flow = platypus.para.Paragraph(self._textual(li), li_style)
             list_item = platypus.ListItem(flow)
             list_items.append(list_item)
 
@@ -596,7 +587,7 @@ class _rml_flowable(object):
 
             def draw(self):
                 canvas = self.canv
-                drw = _rml_draw(self.node, self.styles)
+                drw = RMLDraw(self.node, self.styles)
                 drw.render(self.canv, None)
         return Illustration(node, self.styles)
 
@@ -672,7 +663,7 @@ class _rml_flowable(object):
         return story
 
 
-class _rml_template(object):
+class RMLTemplate(object):
 
     def __init__(self, out, node, doc):
         if not node.hasAttribute('pageSize'):
@@ -696,7 +687,7 @@ class _rml_template(object):
                 frames.append(frame)
             gr = pt.getElementsByTagName('pageGraphics')
             if len(gr):
-                drw = _rml_draw(gr[0], self.doc)
+                drw = RMLDraw(gr[0], self.doc)
                 self.page_templates.append(platypus.PageTemplate(
                     frames=frames, onPage=drw.render, **utils.attr_get(pt, [], {'id': 'str'})))
             else:
@@ -705,38 +696,20 @@ class _rml_template(object):
         self.doc_tmpl.addPageTemplates(self.page_templates)
 
     def render(self, node_story):
-        r = _rml_flowable(self.doc)
+        r = RMLFlowable(self.doc)
         fis = r.render(node_story)
         self.doc_tmpl.build(fis)
 
 
-def parseString(data, fout=None):
-    r = _rml_doc(data)
-    if fout:
-        fp = open(fout, "wb")
-        r.render(fp)
-        fp.close()
-        return fout
-    else:
-        fp = io.BytesIO()
-        r.render(fp)
-        return fp.getvalue()
+@click.command()
+@click.argument('fromfile')
+@click.argument('tofile')
+def main(fromfile,tofile):
+    with open(os.path.abspath(fromfile),'r') as i:
+        r = RMLDoc(i.read())
+        with open(os.path.abspath(tofile),'wb') as o:
+            r.render(o)
 
-
-def trml2pdf_help():
-    print('Usage: trml2pdf input.rml >output.pdf')
-    print('Render the standard input (RML) and output a PDF file')
-    sys.exit(0)
-
-
-def main():
-    if len(sys.argv) > 1:
-        if sys.argv[1] == '--help':
-            trml2pdf_help()
-        print(parseString(open(sys.argv[1], 'r').read()))
-    else:
-        print('Usage: trml2pdf input.rml >output.pdf')
-        print('Try \'trml2pdf --help\' for more information.')
 
 if __name__ == "__main__":
     main()
