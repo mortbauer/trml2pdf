@@ -440,6 +440,11 @@ class RMLCanvas(object):
         self.canvas.drawPath(
             self.path, **utils.attr_get(node, [], {'fill': 'bool', 'stroke': 'bool'}))
 
+    def _stroke(self,node):
+        self.canvas.setStrokeColor(color.get(node.getAttribute('color')))
+        if node.hasAttribute('width'):
+            self.canvas.setLineWidth(float(node.getAttribute('width')))
+
     def render(self, node):
         tags = {
             'drawCentredString': self._drawCenteredString,
@@ -452,7 +457,7 @@ class RMLCanvas(object):
             'grid': self._grid,
             'curves': self._curves,
             'fill': lambda node: self.canvas.setFillColor(color.get(node.getAttribute('color'))),
-            'stroke': lambda node: self.canvas.setStrokeColor(color.get(node.getAttribute('color'))),
+            'stroke':self._stroke,
             'setFont': lambda node: self.canvas.setFont(node.getAttribute('name'), utils.unit_get(node.getAttribute('size'))),
             'place': self._place,
             'circle': self._circle,
