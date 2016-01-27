@@ -46,7 +46,7 @@ def _child_get(node, childs):
 class RMLStyles(object):
 
     def __init__(self, nodes):
-        self.styles = {}
+        self.styles = copy.deepcopy(reportlab.lib.styles.getSampleStyleSheet().byName)
         self.names = {}
         self.table_styles = {}
         self.list_styles = {}
@@ -572,7 +572,7 @@ class RMLFlowable(object):
             rowheights = [
                 utils.unit_get(f.strip()) for f in node.getAttribute('rowHeights').split(',')]
         table = platypus.Table(data=data, colWidths=colwidths, rowHeights=rowheights, **(
-            utils.attr_get(node, ['splitByRow'], {'repeatRows': 'int', 'repeatCols': 'int'})))
+            utils.attr_get(node, ['splitByRow'], {'repeatRows': 'int', 'repeatCols': 'int','hAlign':'str','spaceBefore':'float','spaceAfter':'float'})))
         if node.hasAttribute('style'):
             table.setStyle(
                 self.styles.table_styles[node.getAttribute('style')])
@@ -615,20 +615,16 @@ class RMLFlowable(object):
         elif node.localName == 'blockTable':
             return self._table(node)
         elif node.localName == 'title':
-            styles = reportlab.lib.styles.getSampleStyleSheet()
-            style = styles['Title']
+            style = self.styles.styles['Title']
             return platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
         elif node.localName == 'h1':
-            styles = reportlab.lib.styles.getSampleStyleSheet()
-            style = styles['Heading1']
+            style = self.styles.styles['Heading1']
             return platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
         elif node.localName == 'h2':
-            styles = reportlab.lib.styles.getSampleStyleSheet()
-            style = styles['Heading2']
+            style = self.styles.styles['Heading2']
             return platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
         elif node.localName == 'h3':
-            styles = reportlab.lib.styles.getSampleStyleSheet()
-            style = styles['Heading3']
+            style = self.styles.styles['Heading3']
             return platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
         elif node.localName == 'image':
             return platypus.Image(node.getAttribute('file'), mask=(250, 255, 250, 255, 250, 255), **(utils.attr_get(node, ['width', 'height', 'preserveAspectRatio', 'anchor'])))
@@ -677,9 +673,18 @@ class RMLTemplate(object):
             ps = [x.strip() for x in node.getAttribute('pageSize').replace(')', '').replace(
                 '(', '').split(',')]
             pageSize = (utils.unit_get(ps[0]), utils.unit_get(ps[1]))
-        cm = reportlab.lib.units.cm
-        self.doc_tmpl = platypus.BaseDocTemplate(out, pagesize=pageSize, **utils.attr_get(node, ['leftMargin', 'rightMargin', 'topMargin', 'bottomMargin'], {
-                                                 'allowSplitting': 'int', 'showBoundary': 'bool', 'title': 'str', 'author': 'str', 'rotation': 'int'}))
+        attributes = utils.attr_get(
+            node,
+            attrs=['leftMargin', 'rightMargin', 'topMargin', 'bottomMargin'],
+            attrs_dict={
+                'allowSplitting': 'int',
+                'showBoundary': 'bool',
+                'title': 'str',
+                'author': 'str',
+                'subject': 'str',
+                'application': 'str',
+                'rotation': 'int'})
+        self.doc_tmpl = platypus.BaseDocTemplate(out, pagesize=pageSize, **attributes)
         self.page_templates = []
         self.styles = doc.styles
         self.doc = doc
