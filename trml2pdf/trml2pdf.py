@@ -108,7 +108,8 @@ class RMLStyles(object):
                 node.getAttribute('alignment').lower(), reportlab.lib.enums.TA_LEFT)
         return style
 
-    def _table_style_get(self, style_node):
+    @staticmethod
+    def _table_style_get(style_node):
         styles = []
         for node in style_node.childNodes:
             if node.nodeType == node.ELEMENT_NODE:
@@ -546,6 +547,9 @@ class RMLFlowable(object):
         colwidths = None
         rowheights = None
         data = []
+        style = None
+        for style_node in _child_get(node, 'blockTableStyle'):
+            style = RMLStyles._table_style_get(style_node)
         for tr in _child_get(node, 'tr'):
             data2 = []
             for td in _child_get(tr, 'td'):
@@ -572,10 +576,12 @@ class RMLFlowable(object):
             rowheights = [
                 utils.unit_get(f.strip()) for f in node.getAttribute('rowHeights').split(',')]
         table = platypus.Table(data=data, colWidths=colwidths, rowHeights=rowheights, **(
-            utils.attr_get(node, ['splitByRow'], {'repeatRows': 'int', 'repeatCols': 'int','hAlign':'str','spaceBefore':'float','spaceAfter':'float'})))
+            utils.attr_get(node, ['splitByRow','spaceBefore','spaceAfter'], {'repeatRows': 'int', 'repeatCols': 'int','hAlign':'str'})))
         if node.hasAttribute('style'):
             table.setStyle(
                 self.styles.table_styles[node.getAttribute('style')])
+        elif style is not None:
+            table.setStyle(style)
         return table
 
     def _illustration(self, node):
