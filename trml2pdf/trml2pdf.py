@@ -653,6 +653,8 @@ class RMLFlowable(object):
             return platypus.CondPageBreak(1000)  # TODO: change the 1000 !
         elif node.localName == 'ul':
             return self._list(node)
+        elif node.localName == 'indent':
+            return platypus.Indenter(**(utils.attr_get(node, ['left','right'])))
         else:
             sys.stderr.write(
                 'Warning: flowable not yet implemented: %s !\n' % (node.localName,))
