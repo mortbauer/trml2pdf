@@ -43,6 +43,42 @@ def _child_get(node, childs):
     return clds
 
 
+from reportlab.platypus.flowables import KeepTogether, Spacer, _listWrapOn, _flowableSublist, PageBreak
+from reportlab.platypus.doctemplate import FrameBreak
+
+class FloatToEnd(KeepTogether):
+     '''
+     Float some flowables to the end of the current frame
+     '''
+     def __init__(self,flowables,maxHeight=None,brk='frame'):
+         self._content = _flowableSublist(flowables)
+         self._maxHeight = maxHeight
+         self._state = 0
+         self._brk = brk
+
+     def wrap(self,aW,aH):
+         return aW,aH+1  #force a split
+
+     def _makeBreak(self,h):
+         if self._brk=='page':
+             return PageBreak()
+         else:
+             return FrameBreak
+
+     def split(self,aW,aH):
+         dims = []
+         W,H = _listWrapOn(self._content,aW,self.canv,dims=dims)
+         if self._state==0:
+             if H<aH:
+                 return [Spacer(aW,aH-H)]+self._content
+             else:
+                 S = self
+                 S._state = 1
+                 return [self._makeBreak(aH), S]
+         else:
+             if H>aH: return self._content
+             return [Spacer(aW,aH-H)]+self._content
+
 class RMLStyles(object):
 
     def __init__(self, nodes):
@@ -580,7 +616,10 @@ class RMLFlowable(object):
             rowheights = [
                 utils.unit_get(f.strip()) for f in node.getAttribute('rowHeights').split(',')]
         table = platypus.Table(data=data, colWidths=colwidths, rowHeights=rowheights, **(
-            utils.attr_get(node, ['splitByRow','spaceBefore','spaceAfter'], {'repeatRows': 'int', 'repeatCols': 'int','hAlign':'str'})))
+            utils.attr_get(
+                node, ['splitByRow','spaceBefore','spaceAfter'],
+                {'repeatRows': 'int', 'repeatCols': 'int','hAlign':'str','vAlign':'str'})
+        ))
         if node.hasAttribute('style'):
             table.setStyle(
                 self.styles.table_styles[node.getAttribute('style')])
@@ -590,7 +629,6 @@ class RMLFlowable(object):
 
     def _illustration(self, node):
         class Illustration(platypus.flowables.Flowable):
-
             def __init__(self, node, styles):
                 self.node = node
                 self.styles = styles
@@ -605,6 +643,15 @@ class RMLFlowable(object):
                 drw = RMLDraw(self.node, self.styles)
                 drw.render(self.canv, None)
         return Illustration(node, self.styles)
+
+    def _floattoend(self,node):
+        content = []
+        for child in node.childNodes:
+            if child.nodeType == node.ELEMENT_NODE:
+                n = self._flowable(child)
+                if n is not None:
+                    content.append(n)
+        return FloatToEnd(content)
 
     def _flowable(self, node):
         if node.localName == 'para':
@@ -624,6 +671,8 @@ class RMLFlowable(object):
             return self._illustration(node)
         elif node.localName == 'blockTable':
             return self._table(node)
+        elif node.localName == 'FloatToEnd':
+            return self._floattoend(node)
         elif node.localName == 'title':
             style = self.styles.styles['Title']
             return platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
