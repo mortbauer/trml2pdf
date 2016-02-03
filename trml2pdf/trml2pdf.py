@@ -49,6 +49,7 @@ from reportlab.platypus.doctemplate import FrameBreak
 class FloatToEnd(KeepTogether):
      '''
      Float some flowables to the end of the current frame
+     from: http://comments.gmane.org/gmane.comp.python.reportlab.user/9234
      '''
      def __init__(self,flowables,maxHeight=None,brk='frame'):
          self._content = _flowableSublist(flowables)
@@ -671,7 +672,7 @@ class RMLFlowable(object):
             return self._illustration(node)
         elif node.localName == 'blockTable':
             return self._table(node)
-        elif node.localName == 'FloatToEnd':
+        elif node.localName == 'floatToEnd':
             return self._floattoend(node)
         elif node.localName == 'title':
             style = self.styles.styles['Title']
