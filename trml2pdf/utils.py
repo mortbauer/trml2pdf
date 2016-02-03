@@ -37,12 +37,17 @@ units = [
 
 
 def unit_get(size):
-    global units
+    result = None
     for unit in units:
         res = unit[0].search(size, 0)
         if res:
-            return unit[1] * float(res.group(1))
-    return None
+            result = unit[1] * float(res.group(1))
+    if result is None:
+        if size.upper() == 'NONE':
+            result = None
+        else:
+            result = size
+    return result
 
 
 def tuple_int_get(node, attr_name, default=None):
