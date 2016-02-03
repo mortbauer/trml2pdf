@@ -361,9 +361,13 @@ class RMLCanvas(object):
 
     def _image(self, node):
         from six.moves import urllib
-
         from reportlab.lib.utils import ImageReader
-        u = urllib.request.urlopen("file:" + str(node.getAttribute('file')))
+        try:
+            u = urllib.request.urlopen("file:" + str(node.getAttribute('file')))
+        except:
+            # TODO
+            print('couldn\'t find image at: {0}'.format(str(node.getAttribute('file'))))
+            return
         s = io.BytesIO()
         s.write(u.read())
         s.seek(0)
@@ -514,7 +518,7 @@ class RMLFlowable(object):
             elif (n.nodeType == node.CDATA_SECTION_NODE):
                 rc += n.data
             elif (n.nodeType == node.TEXT_NODE):
-                rc += n.toxml()
+                rc += n.data
         return rc
 
     def _list(self, node):
