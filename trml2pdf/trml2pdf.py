@@ -25,6 +25,7 @@ import copy
 import os
 import io
 import sys
+import logging
 import xml.dom.minidom
 
 import click
@@ -36,6 +37,7 @@ from . import color
 from . import utils
 from .elements import FloatToEnd, Table, NumberedCanvas
 
+logger = logging.getLogger(__name__)
 def _child_get(node, childs):
     clds = []
     for n in node.childNodes:
@@ -367,7 +369,7 @@ class RMLCanvas(object):
             u = urllib.request.urlopen("file:" + str(node.getAttribute('file')))
         except:
             # TODO
-            print('couldn\'t find image at: {0}'.format(str(node.getAttribute('file'))))
+            logger.warn('couldn\'t find image at: %s',node.getAttribute('file'))
             return
         s = io.BytesIO()
         s.write(u.read())
