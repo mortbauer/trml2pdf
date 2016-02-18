@@ -34,7 +34,7 @@ from reportlab.pdfgen import canvas
 
 from . import color
 from . import utils
-from .elements import FloatToEnd
+from .elements import FloatToEnd, Table
 
 def _child_get(node, childs):
     clds = []
@@ -579,7 +579,7 @@ class RMLFlowable(object):
         if node.hasAttribute('rowHeights'):
             rowheights = [
                 utils.unit_get(f.strip()) for f in node.getAttribute('rowHeights').split(',')]
-        table = platypus.Table(data=data, colWidths=colwidths, rowHeights=rowheights, **(
+        table = Table(data=data, colWidths=colwidths, rowHeights=rowheights, **(
             utils.attr_get(
                 node, ['splitByRow','spaceBefore','spaceAfter'],
                 {'repeatRows': 'int', 'repeatCols': 'int','hAlign':'str','vAlign':'str'})
