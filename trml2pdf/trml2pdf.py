@@ -576,7 +576,6 @@ class RMLFlowable(object):
         if node.hasAttribute('colWidths'):
             colwidths = [
                 utils.unit_get(f.strip()) for f in node.getAttribute('colWidths').split(',')]
-            print(colwidths)
         if node.hasAttribute('rowHeights'):
             rowheights = [
                 utils.unit_get(f.strip()) for f in node.getAttribute('rowHeights').split(',')]
