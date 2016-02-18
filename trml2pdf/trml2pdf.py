@@ -513,7 +513,7 @@ class RMLFlowable(object):
                         self.styles.names.get(n.getAttribute('id'), 'Unknown name'))
                     node.insertBefore(newNode, n)
                     node.removeChild(n)
-                if n.localName == 'pageNumber':
+                elif n.localName == 'pageNumber':
                     rc += '<pageNumber/>'  # TODO: change this !
                 else:
                     self._textual(n)
@@ -619,10 +619,16 @@ class RMLFlowable(object):
                     content.append(n)
         return FloatToEnd(content)
 
+    def _serialize_paragraph_content(self,node):
+        res = ''
+        for child in node.childNodes:
+            res += child.toxml()
+        return res
+
     def _flowable(self, node):
         if node.localName == 'para':
             style = self.styles.para_style_get(node)
-            return platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
+            return platypus.Paragraph(self._serialize_paragraph_content(node), style)
         elif node.localName == 'name':
             self.styles.names[
                 node.getAttribute('id')] = node.getAttribute('value')
