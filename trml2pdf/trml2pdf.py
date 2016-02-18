@@ -34,7 +34,7 @@ from reportlab.pdfgen import canvas
 
 from . import color
 from . import utils
-from .elements import FloatToEnd, Table
+from .elements import FloatToEnd, Table, NumberedCanvas
 
 def _child_get(node, childs):
     clds = []
@@ -733,7 +733,7 @@ class RMLTemplate(object):
     def render(self, node_story):
         r = RMLFlowable(self.doc)
         fis = r.render(node_story)
-        self.doc_tmpl.build(fis)
+        self.doc_tmpl.build(fis,canvasmaker=NumberedCanvas)
 
 
 @click.command()

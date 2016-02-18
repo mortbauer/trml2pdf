@@ -2,6 +2,7 @@ from reportlab.platypus.flowables import KeepTogether, Spacer, _listWrapOn, _flo
 from reportlab.platypus.doctemplate import FrameBreak
 from reportlab.lib.utils import annotateException
 from reportlab.platypus import tables
+from reportlab.pdfgen.canvas import Canvas
 
 class FloatToEnd(KeepTogether):
      '''
@@ -117,3 +118,24 @@ class Table(tables.Table):
         self._width_calculated_once = 1
 
 
+class NumberedCanvas(Canvas):
+    """
+    special Canvas to have total page number available, take from: https://gist.github.com/k4ml/7061027
+    """
+    def __init__(self, *args, **kwargs):
+        Canvas.__init__(self, *args, **kwargs)
+        self._saved_page_states = []
+
+    def showPage(self):
+        self._saved_page_states.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        """add page info to each page (page x of y)"""
+        num_pages = len(self._saved_page_states)
+        for state in self._saved_page_states:
+            for count, _code in enumerate(state['_code']):
+                state['_code'][count] = state['_code'][count].replace('{TOTAL_PAGE_COUNT}', str(num_pages))
+            self.__dict__.update(state)
+            Canvas.showPage(self)
+        Canvas.save(self)
