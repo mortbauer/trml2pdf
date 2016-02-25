@@ -478,10 +478,10 @@ class RMLCanvas(object):
         }
         for nd in node.childNodes:
             if nd.nodeType == nd.ELEMENT_NODE:
-                for tag in tags:
-                    if nd.localName == tag:
-                        tags[tag](nd)
-                        break
+                if nd.localName in tags:
+                    tags[nd.localName](nd)
+                else:
+                    raise Exception('unknown tag {}'.format(nd.localName))
 
 
 class RMLDraw(object):
@@ -748,8 +748,8 @@ class RMLTemplate(object):
 @click.argument('fromfile')
 @click.argument('tofile')
 def main(fromfile,tofile):
-    with open(os.path.abspath(fromfile),'r') as i:
-        r = RMLDoc(i.read())
+    with open(os.path.abspath(fromfile),'rb') as i:
+        r = RMLDoc(i.read().decode('utf-8'))
         with open(os.path.abspath(tofile),'wb') as o:
             r.render(o)
 
