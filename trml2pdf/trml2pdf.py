@@ -678,6 +678,25 @@ class RMLFlowable(object):
             return platypus.CondPageBreak(1000)  # TODO: change the 1000 !
         elif node.localName == 'ul':
             return self._list(node)
+        elif node.localName == 'hr':
+            kw = {}
+            if node.hasAttribute('thickness'):
+                kw['thickness'] = utils.unit_get(node.getAttribute('thickness'))
+            if node.hasAttribute('spaceBefore'):
+                kw['spaceBefore'] = utils.unit_get(node.getAttribute('spaceBefore'))
+            if node.hasAttribute('spaceAfter'):
+                kw['spaceAfter'] = utils.unit_get(node.getAttribute('spaceAfter'))
+            if node.hasAttribute('color'):
+                kw['color'] = color.get(node.getAttribute('color'))
+            if node.hasAttribute('width'):
+                kw['width'] = node.getAttribute('width')
+            if node.hasAttribute('dash'):
+                kw['dash'] = node.getAttribute('dash')
+            if node.hasAttribute('hAlign'):
+                kw['hAlign'] = node.getAttribute('hAlign')
+            if node.hasAttribute('cAlign'):
+                kw['cAlign'] = node.getAttribute('cAlign')
+            return platypus.flowables.HRFlowable(**kw)
         elif node.localName == 'indent':
             return platypus.Indenter(**(utils.attr_get(node, ['left','right'])))
         else:
