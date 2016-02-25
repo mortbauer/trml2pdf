@@ -1,4 +1,4 @@
-from reportlab.platypus.flowables import KeepTogether, Spacer, _listWrapOn, _flowableSublist, PageBreak
+from reportlab.platypus.flowables import KeepTogether, Spacer, _listWrapOn, _flowableSublist, PageBreak,Flowable
 from reportlab.platypus.doctemplate import FrameBreak
 from reportlab.lib.utils import annotateException
 from reportlab.platypus import tables
@@ -116,7 +116,6 @@ class Table(tables.Table):
 
         self._width = width
         self._width_calculated_once = 1
-
 
 class NumberedCanvas(Canvas):
     """

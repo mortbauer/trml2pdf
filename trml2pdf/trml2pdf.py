@@ -69,13 +69,13 @@ class RMLStyles(object):
                         'value')
 
     def _para_style_update(self, style, node):
-        for attr in ['textColor', 'backColor', 'bulletColor']:
+        for attr in ['textColor', 'backColor', 'bulletColor','borderColor']:
             if node.hasAttribute(attr):
                 style.__dict__[attr] = color.get(node.getAttribute(attr))
         for attr in ['fontName', 'bulletFontName', 'bulletText']:
             if node.hasAttribute(attr):
                 style.__dict__[attr] = node.getAttribute(attr)
-        for attr in ['fontSize', 'leftIndent', 'rightIndent', 'spaceBefore', 'spaceAfter', 'firstLineIndent', 'bulletIndent', 'bulletFontSize', 'leading']:
+        for attr in ['borderWidth','borderRadius','fontSize', 'leftIndent', 'rightIndent', 'spaceBefore', 'spaceAfter', 'firstLineIndent', 'bulletIndent', 'bulletFontSize', 'leading']:
             if node.hasAttribute(attr):
                 if attr == 'fontSize' and not node.hasAttribute('leading'):
                     style.__dict__['leading'] = utils.unit_get(
@@ -535,7 +535,9 @@ class RMLFlowable(object):
             flow = []
             for n in li.childNodes:
                 if n.nodeType == node.ELEMENT_NODE:
-                    flow.append(self._flowable(n))
+                    for flowable in self._flowable(n):
+                        if flowable is not None:
+                            flow.append(flowable)
             if not flow:
                 if li.hasAttribute('style'):
                     li_style = self.styles.styles[
@@ -563,7 +565,9 @@ class RMLFlowable(object):
                 flow = []
                 for n in td.childNodes:
                     if n.nodeType == node.ELEMENT_NODE:
-                        flow.append(self._flowable(n))
+                        for flowable in self._flowable(n):
+                            if flowable is not None:
+                                flow.append(flowable)
                 if not len(flow):
                     flow = self._textual(td)
                 data2.append(flow)
@@ -614,9 +618,9 @@ class RMLFlowable(object):
         content = []
         for child in node.childNodes:
             if child.nodeType == node.ELEMENT_NODE:
-                n = self._flowable(child)
-                if n is not None:
-                    content.append(n)
+                for flow in self._flowable(child):
+                    if flow is not None:
+                        content.append(flow)
         return FloatToEnd(content)
 
     def _serialize_paragraph_content(self,node):
@@ -628,56 +632,56 @@ class RMLFlowable(object):
     def _flowable(self, node):
         if node.localName == 'para':
             style = self.styles.para_style_get(node)
-            return platypus.Paragraph(self._serialize_paragraph_content(node), style)
+            yield platypus.Paragraph(self._serialize_paragraph_content(node), style)
         elif node.localName == 'name':
             self.styles.names[
                 node.getAttribute('id')] = node.getAttribute('value')
-            return None
+            yield None
         elif node.localName == 'xpre':
             style = self.styles.para_style_get(node)
-            return platypus.XPreformatted(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str', 'dedent': 'int', 'frags': 'int'})))
+            yield platypus.XPreformatted(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str', 'dedent': 'int', 'frags': 'int'})))
         elif node.localName == 'pre':
             style = self.styles.para_style_get(node)
-            return platypus.Preformatted(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str', 'dedent': 'int'})))
+            yield platypus.Preformatted(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str', 'dedent': 'int'})))
         elif node.localName == 'illustration':
-            return self._illustration(node)
+            yield self._illustration(node)
         elif node.localName == 'blockTable':
-            return self._table(node)
+            yield self._table(node)
         elif node.localName == 'floatToEnd':
-            return self._floattoend(node)
+            yield self._floattoend(node)
         elif node.localName == 'title':
             style = self.styles.styles['Title']
-            return platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
+            yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
         elif node.localName == 'h1':
             style = self.styles.styles['Heading1']
-            return platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
+            yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
         elif node.localName == 'h2':
             style = self.styles.styles['Heading2']
-            return platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
+            yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
         elif node.localName == 'h3':
             style = self.styles.styles['Heading3']
-            return platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
+            yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
         elif node.localName == 'image':
-            return platypus.Image(node.getAttribute('file'), mask=(250, 255, 250, 255, 250, 255), **(utils.attr_get(node, ['width', 'height', 'preserveAspectRatio', 'anchor'])))
+            yield platypus.Image(node.getAttribute('file'), mask=(250, 255, 250, 255, 250, 255), **(utils.attr_get(node, ['width', 'height', 'preserveAspectRatio', 'anchor'])))
         elif node.localName == 'spacer':
             if node.hasAttribute('width'):
                 width = utils.unit_get(node.getAttribute('width'))
             else:
                 width = utils.unit_get('1cm')
             length = utils.unit_get(node.getAttribute('length'))
-            return platypus.Spacer(width=width, height=length)
+            yield platypus.Spacer(width=width, height=length)
         elif node.localName == 'barCode':
-            return code39.Extended39(self._textual(node))
+            yield code39.Extended39(self._textual(node))
         elif node.localName == 'pageBreak':
-            return platypus.PageBreak()
+            yield platypus.PageBreak()
         elif node.localName == 'condPageBreak':
-            return platypus.CondPageBreak(**(utils.attr_get(node, ['height'])))
+            yield platypus.CondPageBreak(**(utils.attr_get(node, ['height'])))
         elif node.localName == 'setNextTemplate':
-            return platypus.NextPageTemplate(str(node.getAttribute('name')))
+            yield platypus.NextPageTemplate(str(node.getAttribute('name')))
         elif node.localName == 'nextFrame':
-            return platypus.CondPageBreak(1000)  # TODO: change the 1000 !
+            yield platypus.CondPageBreak(1000)  # TODO: change the 1000 !
         elif node.localName == 'ul':
-            return self._list(node)
+            yield self._list(node)
         elif node.localName == 'hr':
             kw = {}
             if node.hasAttribute('thickness'):
@@ -696,22 +700,32 @@ class RMLFlowable(object):
                 kw['hAlign'] = node.getAttribute('hAlign')
             if node.hasAttribute('cAlign'):
                 kw['cAlign'] = node.getAttribute('cAlign')
-            return platypus.flowables.HRFlowable(**kw)
+            yield platypus.flowables.HRFlowable(**kw)
         elif node.localName == 'indent':
-            return platypus.Indenter(**(utils.attr_get(node, ['left','right'])))
+            from reportlab.platypus.paraparser import _num
+            kw = {}
+            for key in ('left','right'):
+                if node.hasAttribute(key):
+                    kw[key] = _num(node.getAttribute(key))
+            yield platypus.Indenter(**kw)
+            for child in node.childNodes:
+                if child.nodeType == node.ELEMENT_NODE:
+                    for flow in self._flowable(child):
+                        yield flow
+            yield platypus.Indenter(**{x:-1*y for x,y in kw.items()})
         else:
-            sys.stderr.write(
+            logger.warn(
                 'Warning: flowable not yet implemented: %s !\n' % (node.localName,))
-            return None
+            yield None
 
     def render(self, node_story):
         story = []
         node = node_story.firstChild
         while node:
             if node.nodeType == node.ELEMENT_NODE:
-                flow = self._flowable(node)
-                if flow:
-                    story.append(flow)
+                for flow in self._flowable(node):
+                    if flow:
+                        story.append(flow)
             node = node.nextSibling
         return story
 
