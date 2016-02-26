@@ -148,8 +148,17 @@ class RMLStyles(object):
                     styles.append(
                         ('BOTTOMPADDING', start, stop, utils.unit_get(node.getAttribute('length'))))
                 elif node.localName == 'blockBackground':
-                    styles.append(
-                        ('BACKGROUND', start, stop, color.get(node.getAttribute('colorName'))))
+                    if node.hasAttribute('colorName'):
+                        styles.append(
+                            ('BACKGROUND', start, stop, color.get(node.getAttribute('colorName'))))
+                    if node.hasAttribute('colorsByRow'):
+                        colors = [color.get(x) for x in node.getAttribute('colorsByRow').split(';')]
+                        styles.append(
+                            ('ROWBACKGROUNDS', start, stop,colors ))
+                    if node.hasAttribute('colorsByCol'):
+                        colors = [color.get(x) for x in node.getAttribute('colorsByCol').split(';')]
+                        styles.append(
+                            ('ROWBACKGROUNDS', start, stop,colors ))
                 if node.hasAttribute('size'):
                     styles.append(
                         ('FONTSIZE', start, stop, utils.unit_get(node.getAttribute('size'))))
