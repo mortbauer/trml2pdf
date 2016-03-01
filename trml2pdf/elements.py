@@ -233,7 +233,6 @@ class Table(tables.Table):
                 elif args[0] == 'ROWSPAN':
                     for i in xrange(y0,y1,args[3]):
                         spanRanges[x0,i] = (x0, i, x1, i+args[3]-1)
-                        print(x0,i,spanRanges[x0,i])
 
 class NumberedCanvas(Canvas):
     """
