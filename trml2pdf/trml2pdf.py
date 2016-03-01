@@ -38,6 +38,7 @@ from . import utils
 from .elements import FloatToEnd, Table, NumberedCanvas
 
 logger = logging.getLogger(__name__)
+
 def _child_get(node, childs):
     clds = []
     for n in node.childNodes:
@@ -125,7 +126,14 @@ class RMLStyles(object):
                     styles.append(
                         ('FONT', start, stop, str(node.getAttribute('name'))))
                 elif node.localName == 'blockSpan':
-                    styles.append(('SPAN', start, stop))
+                    if node.hasAttribute('byCol'):
+                        each = int(node.getAttribute('byCol'))
+                        styles.append(('COLSPAN',start, stop,each))
+                    elif node.hasAttribute('byRow'):
+                        each = int(node.getAttribute('byRow'))
+                        styles.append(('ROWSPAN',start, stop,each))
+                    else:
+                        styles.append(('SPAN', start, stop))
                 elif node.localName == 'blockTextColor':
                     styles.append(
                         ('TEXTCOLOR', start, stop, color.get(str(node.getAttribute('colorName')))))

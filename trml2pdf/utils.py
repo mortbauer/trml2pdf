@@ -54,7 +54,7 @@ def unit_get(size):
 def tuple_int_get(node, attr_name, default=None):
     if not node.hasAttribute(attr_name):
         return default
-    res = [int(x) for x in node.getAttribute(attr_name).split(',')]
+    res = tuple(int(x) for x in node.getAttribute(attr_name).split(','))
     return res
 
 
