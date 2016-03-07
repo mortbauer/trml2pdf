@@ -166,7 +166,7 @@ class RMLStyles(object):
                     if node.hasAttribute('colorsByCol'):
                         colors = [color.get(x) for x in node.getAttribute('colorsByCol').split(';')]
                         styles.append(
-                            ('ROWBACKGROUNDS', start, stop,colors ))
+                            ('COLBACKGROUNDS', start, stop,colors ))
                 if node.hasAttribute('size'):
                     styles.append(
                         ('FONTSIZE', start, stop, utils.unit_get(node.getAttribute('size'))))

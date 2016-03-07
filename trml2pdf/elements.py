@@ -228,10 +228,10 @@ class Table(tables.Table):
                 if args[0] == 'SPAN':
                     spanRanges[x0,y0] = (x0, y0, x1, y1)
                 elif args[0] == 'COLSPAN':
-                    for i in xrange(x0,x1,args[3]):
+                    for i in xrange(x0,x1+1,args[3]):
                         spanRanges[i,y0] = (i, y0, i+args[3]-1, y1)
                 elif args[0] == 'ROWSPAN':
-                    for i in xrange(y0,y1,args[3]):
+                    for i in xrange(y0,y1+1,args[3]):
                         spanRanges[x0,i] = (x0, i, x1, i+args[3]-1)
 
 class NumberedCanvas(Canvas):
