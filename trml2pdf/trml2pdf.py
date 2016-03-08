@@ -412,6 +412,8 @@ class RMLCanvas(object):
                 args['width'] = sx * args['height'] / sy
             else:
                 args['height'] = sy * args['width'] / sx
+        if node.hasAttribute('showBoundary') and node.getAttribute('showBoundary'):
+            self.canvas.rect(args['x'],args['y'],args['width'],args['height'])
         self.canvas.drawImage(img, **args)
 
     def _barcode(self, node):
