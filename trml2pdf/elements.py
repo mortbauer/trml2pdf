@@ -66,7 +66,6 @@ class Table(tables.Table):
                     if c0!=c1:
                         x = c0,c1
                         spanCons[x] = max(spanCons.get(x,t),t)
-                        t = 0
             if t>w: w = t   #record a new maximum
         return w
 
