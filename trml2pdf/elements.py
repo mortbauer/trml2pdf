@@ -66,6 +66,7 @@ class Table(tables.Table):
                     if c0!=c1:
                         x = c0,c1
                         spanCons[x] = max(spanCons.get(x,t),t)
+                        t = 0
             if t>w: w = t   #record a new maximum
         return w
 
@@ -92,17 +93,15 @@ class Table(tables.Table):
         S = self._cellStyles
         # calc minimal needed widths
         needed_widths = []
-        total_needed_width = 0
         for j,w in enumerate(W):
             if w is None:
                 w = self._calcColumnWidth(j,spanRanges,colSpanCells,spanCons)
-            if not isinstance(w,str):
-                total_needed_width += w
             needed_widths.append(w)
         for j,w in enumerate(needed_widths):
             if isinstance(w,str):
                 fac = float(w.rstrip('%'))/100
-                W[j] = (availWidth-total_needed_width)*fac
+                tables.spanFixDim(W0[:j],W,spanCons)
+                W[j] = (availWidth-sum(W[:j]))*fac
             else:
                 W[j] = w
         if spanCons:
