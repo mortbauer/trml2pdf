@@ -100,7 +100,7 @@ class Table(tables.Table):
         for j,w in enumerate(needed_widths):
             if isinstance(w,str):
                 fac = float(w.rstrip('%'))/100
-                tables.spanFixDim(W0[:j],W,spanCons)
+                tables.spanFixDim(W0,W,spanCons,lim=j-1)
                 W[j] = (availWidth-sum(W[:j]))*fac
             else:
                 W[j] = w
