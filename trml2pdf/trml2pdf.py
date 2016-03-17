@@ -642,6 +642,16 @@ class RMLFlowable(object):
                         content.append(flow)
         return FloatToEnd(content)
 
+    def _keeptogether(self,node):
+        content = []
+        for child in node.childNodes:
+            if child.nodeType == node.ELEMENT_NODE:
+                for flow in self._flowable(child):
+                    if flow is not None:
+                        content.append(flow)
+        return platypus.KeepTogether(content)
+
+
     def _serialize_paragraph_content(self,node):
         res = ''
         for child in node.childNodes:
@@ -668,6 +678,8 @@ class RMLFlowable(object):
             yield self._table(node)
         elif node.localName == 'floatToEnd':
             yield self._floattoend(node)
+        elif node.localName == 'keepTogether':
+            yield self._keeptogether(node)
         elif node.localName == 'title':
             style = self.styles.styles['Title']
             yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
