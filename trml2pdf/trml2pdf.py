@@ -30,6 +30,7 @@ import xml.dom.minidom
 
 import click
 from reportlab import platypus
+from reportlab.platypus import para
 import reportlab
 from reportlab.pdfgen import canvas
 
@@ -564,11 +565,14 @@ class RMLFlowable(object):
                 else:
                     li_style = reportlab.lib.styles.getSampleStyleSheet()[
                         'Normal']
-                flow = platypus.para.Paragraph(self._textual(li), li_style)
+                flow = para.Paragraph(self._textual(li), li_style)
             list_item = platypus.ListItem(flow)
             list_items.append(list_item)
-
-        return platypus.ListFlowable(list_items, style=list_style, start=list_style.__dict__.get('start'))
+        kwargs = {}
+        for key in ('bulletType',):
+            if node.hasAttribute(key):
+                kwargs[key] = node.getAttribute(key)
+        return platypus.ListFlowable(list_items, style=list_style, start=list_style.__dict__.get('start'),**kwargs)
 
     def _table(self, node):
         length = 0
