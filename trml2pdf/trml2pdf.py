@@ -606,8 +606,11 @@ class RMLFlowable(object):
             colwidths = [
                 utils.unit_get(f.strip()) for f in node.getAttribute('colWidths').split(',')]
         if node.hasAttribute('rowHeights'):
-            rowheights = [
-                utils.unit_get(f.strip()) for f in node.getAttribute('rowHeights').split(',')]
+            value = node.getAttribute('rowHeights')
+            if ',' in value:
+                rowheights = [utils.unit_get(f.strip()) for f in value.split(',')]
+            else:
+                rowheights = utils.unit_get(value.strip())
         table = Table(data=data, colWidths=colwidths, rowHeights=rowheights, **(
             utils.attr_get(
                 node, ['splitByRow','spaceBefore','spaceAfter'],
