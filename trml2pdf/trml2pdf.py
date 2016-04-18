@@ -36,7 +36,7 @@ from reportlab.pdfgen import canvas
 
 from . import color
 from . import utils
-from .elements import FloatToEnd, Table, NumberedCanvas
+from .elements import FloatToEnd, Table, NumberedCanvas, PdfImage
 
 logger = logging.getLogger(__name__)
 
@@ -701,6 +701,8 @@ class RMLFlowable(object):
             yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
         elif node.localName == 'image':
             yield platypus.Image(node.getAttribute('file'), mask=(250, 255, 250, 255, 250, 255), **(utils.attr_get(node, ['width', 'height', 'preserveAspectRatio', 'anchor'])))
+        elif node.localName == 'pdfimage':
+            yield PdfImage(node.getAttribute('file'), **(utils.attr_get(node, ['width', 'height', 'direct','hAlign'])))
         elif node.localName == 'spacer':
             if node.hasAttribute('width'):
                 width = utils.unit_get(node.getAttribute('width'))
