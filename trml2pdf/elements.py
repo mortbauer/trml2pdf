@@ -3,7 +3,7 @@ from pdfrw.buildxobj import pagexobj
 from pdfrw.toreportlab import makerl
 
 from reportlab.platypus.flowables import (
-    KeepTogether, Spacer, _listWrapOn, _flowableSublist, PageBreak,Flowable,
+    KeepTogether, Spacer, _listWrapOn, _flowableSublist, PageBreak
 )
 from reportlab.platypus.tables import (
     _isLineCommand, _convert2int, _setCellStyle, LINECAPS, LINEJOINS,
@@ -247,7 +247,8 @@ class NumberedCanvas(Canvas):
         self._saved_page_states = []
 
     def showPage(self):
-        self._saved_page_states.append(dict(self.__dict__))
+        data = dict(self.__dict__)
+        self._saved_page_states.append(data)
         self._startPage()
 
     def save(self):
@@ -260,17 +261,14 @@ class NumberedCanvas(Canvas):
             Canvas.showPage(self)
         Canvas.save(self)
 
-class PdfImage(Flowable):
+class PdfPage(Flowable):
     """PdfImage wraps the first page from a PDF file as a Flowable
     which can be included into a ReportLab Platypus document.
     Based on the vectorpdf extension in rst2pdf (http://code.google.com/p/rst2pdf/)
     """
-    def __init__(self, filename_or_object, width=None, height=None, kind='direct',hAlign='LEFT'):
+    def __init__(self, pdfpage, width=None, height=None, kind='direct',hAlign='LEFT'):
         # If using StringIO buffer, set pointer to begining
-        if hasattr(filename_or_object, 'read'):
-            filename_or_object.seek(0)
-        page = PdfReader(filename_or_object, decompress=False).pages[0]
-        self.xobj = pagexobj(page)
+        self.xobj = pagexobj(pdfpage)
         self.imageWidth = width
         self.imageHeight = height
         x1, y1, x2, y2 = self.xobj.BBox

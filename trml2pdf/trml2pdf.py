@@ -33,10 +33,11 @@ from reportlab import platypus
 from reportlab.platypus import para
 import reportlab
 from reportlab.pdfgen import canvas
+from pdfrw import PdfReader
 
 from . import color
 from . import utils
-from .elements import FloatToEnd, Table, NumberedCanvas, PdfImage
+from .elements import FloatToEnd, Table, NumberedCanvas, PdfPage
 
 logger = logging.getLogger(__name__)
 
@@ -658,7 +659,6 @@ class RMLFlowable(object):
                         content.append(flow)
         return platypus.KeepTogether(content)
 
-
     def _serialize_paragraph_content(self,node):
         res = ''
         for child in node.childNodes:
@@ -701,8 +701,22 @@ class RMLFlowable(object):
             yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
         elif node.localName == 'image':
             yield platypus.Image(node.getAttribute('file'), mask=(250, 255, 250, 255, 250, 255), **(utils.attr_get(node, ['width', 'height', 'preserveAspectRatio', 'anchor'])))
-        elif node.localName == 'pdfimage':
-            yield PdfImage(node.getAttribute('file'), **(utils.attr_get(node, ['width', 'height', 'kind','hAlign'])))
+        elif node.localName == 'pdfpage':
+            page_number = node.getAttribute('page',0)
+            page = PdfReader(node.getAttribute('file'), decompress=False).pages[page_number]
+            yield PdfPage(page, **(utils.attr_get(node, ['width', 'height', 'kind','hAlign'])))
+        elif node.localName == 'pdfpages':
+            wrapper = node.getAttribute('wrapper')
+            pdf = PdfReader(node.getAttribute('file'), decompress=False)
+            options = utils.attr_get(node, ['width', 'height', 'kind','hAlign'])
+            if wrapper:
+                Wrapper = globals()[wrapper]
+                for page in pdf.pages:
+                    yield Wrapper(PdfPage(page,**options))
+            else:
+                for page in pdf.pages:
+                    yield PdfPage(page,**options)
+
         elif node.localName == 'spacer':
             if node.hasAttribute('width'):
                 width = utils.unit_get(node.getAttribute('width'))
