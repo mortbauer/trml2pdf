@@ -702,7 +702,7 @@ class RMLFlowable(object):
         elif node.localName == 'image':
             yield platypus.Image(node.getAttribute('file'), mask=(250, 255, 250, 255, 250, 255), **(utils.attr_get(node, ['width', 'height', 'preserveAspectRatio', 'anchor'])))
         elif node.localName == 'pdfimage':
-            yield PdfImage(node.getAttribute('file'), **(utils.attr_get(node, ['width', 'height', 'direct','hAlign'])))
+            yield PdfImage(node.getAttribute('file'), **(utils.attr_get(node, ['width', 'height', 'kind','hAlign'])))
         elif node.localName == 'spacer':
             if node.hasAttribute('width'):
                 width = utils.unit_get(node.getAttribute('width'))
