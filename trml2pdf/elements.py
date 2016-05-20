@@ -262,6 +262,7 @@ class NumberedCanvas(Canvas):
         Canvas.save(self)
 
 class PdfPage(Flowable):
+    _fixedWidth = 1
     """PdfImage wraps the first page from a PDF file as a Flowable
     which can be included into a ReportLab Platypus document.
     Based on the vectorpdf extension in rst2pdf (http://code.google.com/p/rst2pdf/)
