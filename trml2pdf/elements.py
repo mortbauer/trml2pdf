@@ -3,7 +3,7 @@ from pdfrw.buildxobj import pagexobj
 from pdfrw.toreportlab import makerl
 
 from reportlab.platypus.flowables import (
-    KeepTogether, Spacer, _listWrapOn, _flowableSublist, PageBreak
+    KeepTogether, Spacer, _listWrapOn, _flowableSublist, PageBreak, _Container
 )
 from reportlab.platypus.tables import (
     _isLineCommand, _convert2int, _setCellStyle, LINECAPS, LINEJOINS,
@@ -14,6 +14,7 @@ from reportlab.platypus import tables
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import Flowable
 from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+from reportlab.pdfbase.pdfmetrics import stringWidth
 
 class FloatToEnd(KeepTogether):
      '''
@@ -50,6 +51,35 @@ class FloatToEnd(KeepTogether):
              return [Spacer(aW,aH-H)]+self._content
 
 class Table(tables.Table):
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        self._user_col_widths = self._colWidths.copy()
+
+    def _elementWidth(self,v,s):
+        if isinstance(v,(list,tuple)):
+            w = 0
+            for e in v:
+                ew = self._elementWidth(e,s)
+                if ew is None: return None
+                w = max(w,ew)
+            return w
+        elif isinstance(v,Flowable) and v._fixedWidth:
+            if hasattr(v, 'width') and isinstance(v.width,(int,float)): return v.width
+            if hasattr(v, 'drawWidth') and isinstance(v.drawWidth,(int,float)): return v.drawWidth
+        # Even if something is fixedWidth, the attribute to check is not
+        # necessarily consistent (cf. Image.drawWidth).  Therefore, we'll
+        # be extra-careful and fall through to this code if necessary.
+        if hasattr(v, 'minWidth'):
+            try:
+                w = v.minWidth() # should be all flowables
+                if isinstance(w,(float,int)): return w
+            except AttributeError:
+                pass
+        if isinstance(v,str):
+            return stringWidth(v,s.fontname,s.fontsize)
+        else:
+            return 0
+
     def _calcColumnWidth(self,j,spanRanges,colSpanCells,spanCons):
         V = self._cellvalues
         S = self._cellStyles
