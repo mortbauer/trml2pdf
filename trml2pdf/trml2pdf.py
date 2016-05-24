@@ -699,6 +699,15 @@ class RMLFlowable(object):
         elif node.localName == 'h3':
             style = self.styles.styles['Heading3']
             yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
+        elif node.localName == 'h4':
+            style = self.styles.styles['Heading4']
+            yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
+        elif node.localName == 'h5':
+            style = self.styles.styles['Heading5']
+            yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
+        elif node.localName == 'h6':
+            style = self.styles.styles['Heading6']
+            yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
         elif node.localName == 'image':
             yield platypus.Image(node.getAttribute('file'), mask=(250, 255, 250, 255, 250, 255), **(utils.attr_get(node, ['width', 'height', 'preserveAspectRatio', 'anchor'])))
         elif node.localName == 'pdfpage':
