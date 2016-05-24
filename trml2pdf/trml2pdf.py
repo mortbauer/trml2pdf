@@ -665,6 +665,18 @@ class RMLFlowable(object):
             res += child.toxml()
         return res
 
+    def _get_para_options(self,node):
+        d = {}
+        d['alignment'] = node.getAttribute('alignment')
+        d['fontName'] = node.getAttribute('fontName')
+        d['fontSize'] = node.getAttribute('fontSize')
+        d['leading'] = node.getAttribute('leading')
+        d['leftIndent'] = node.getAttribute('leftIndent')
+        d['rightIndent'] = node.getAttribute('rightIndent')
+        d['spaceBefore'] = node.getAttribute('spaceBefore')
+        d['spaceAfter'] = node.getAttribute('spaceAfter')
+        return d
+
     def _flowable(self, node):
         if node.localName == 'para':
             style = self.styles.para_style_get(node)
@@ -688,25 +700,32 @@ class RMLFlowable(object):
         elif node.localName == 'keepTogether':
             yield self._keeptogether(node)
         elif node.localName == 'title':
-            style = self.styles.styles['Title']
+            style = copy.deepcopy(self.styles.styles['Title'])
+            self.styles._para_style_update(style,node)
             yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
         elif node.localName == 'h1':
-            style = self.styles.styles['Heading1']
+            style = copy.deepcopy(self.styles.styles['Heading1'])
+            self.styles._para_style_update(style,node)
             yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
         elif node.localName == 'h2':
-            style = self.styles.styles['Heading2']
+            style = copy.deepcopy(self.styles.styles['Heading2'])
+            self.styles._para_style_update(style,node)
             yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
         elif node.localName == 'h3':
-            style = self.styles.styles['Heading3']
+            style = copy.deepcopy(self.styles.styles['Heading3'])
+            self.styles._para_style_update(style,node)
             yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
         elif node.localName == 'h4':
-            style = self.styles.styles['Heading4']
+            style = copy.deepcopy(self.styles.styles['Heading4'])
+            self.styles._para_style_update(style,node)
             yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
         elif node.localName == 'h5':
-            style = self.styles.styles['Heading5']
+            style = copy.deepcopy(self.styles.styles['Heading5'])
+            self.styles._para_style_update(style,node)
             yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
         elif node.localName == 'h6':
-            style = self.styles.styles['Heading6']
+            style = copy.deepcopy(self.styles.styles['Heading6'])
+            self.styles._para_style_update(style,node)
             yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
         elif node.localName == 'image':
             yield platypus.Image(node.getAttribute('file'), mask=(250, 255, 250, 255, 250, 255), **(utils.attr_get(node, ['width', 'height', 'preserveAspectRatio', 'anchor'])))
