@@ -283,10 +283,17 @@ class NumberedCanvas(Canvas):
 
     def save(self):
         """add page info to each page (page x of y)"""
+        from lxml import etree
         num_pages = len(self._saved_page_states)
         for state in self._saved_page_states:
             for count, _code in enumerate(state['_code']):
-                state['_code'][count] = state['_code'][count].replace('{TOTAL_PAGE_COUNT}', str(num_pages))
+                if isinstance(_code,tuple):
+                    TYPE,canv,element = _code
+                    canv._totalpagecount = num_pages
+                    container = etree.Element('container')
+                    container.append(element)
+                    canv.render(container)
+                    state['_code'][count] = canv.canvas._code.pop()
             self.__dict__.update(state)
             Canvas.showPage(self)
         Canvas.save(self)

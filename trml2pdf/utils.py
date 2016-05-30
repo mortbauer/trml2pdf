@@ -22,10 +22,9 @@ from six import text_type
 
 
 def text_get(node):
-    rc = ''
-    for node in node.childNodes:
-        if node.nodeType == node.TEXT_NODE:
-            rc = rc + node.data
+    rc = node.text
+    for node in node.getchildren():
+        rc += node.text
     return rc
 
 units = [
@@ -52,9 +51,9 @@ def unit_get(size):
 
 
 def tuple_int_get(node, attr_name, default=None):
-    if not node.hasAttribute(attr_name):
+    if attr_name not in node.attrib:
         return default
-    res = tuple(int(x) for x in node.getAttribute(attr_name).split(','))
+    res = tuple(int(x) for x in node.attrib[attr_name].split(','))
     return res
 
 
@@ -65,14 +64,14 @@ def bool_get(value):
 def attr_get(node, attrs, attrs_dict={}):
     res = {}
     for name in attrs:
-        if node.hasAttribute(name):
-            res[name] = unit_get(node.getAttribute(name))
+        if name in node.attrib:
+            res[name] = unit_get(node.attrib[name])
     for key in attrs_dict:
-        if node.hasAttribute(key):
+        if key in node.attrib:
             if attrs_dict[key] == 'str':
-                res[key] = text_type(node.getAttribute(key))
+                res[key] = text_type(node.attrib[key])
             elif attrs_dict[key] == 'bool':
-                res[key] = bool_get(node.getAttribute(key))
+                res[key] = bool_get(node.attrib[key])
             elif attrs_dict[key] == 'int':
-                res[key] = int(node.getAttribute(key))
+                res[key] = int(node.attrib[key])
     return res
