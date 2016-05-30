@@ -3,20 +3,71 @@ from pdfrw.buildxobj import pagexobj
 from pdfrw.toreportlab import makerl
 
 from reportlab.platypus.flowables import (
-    KeepTogether, Spacer, _listWrapOn, _flowableSublist, PageBreak, _Container
+    _listWrapOn, _flowableSublist, PageBreak, _Container
 )
-from reportlab.platypus.tables import (
-    _isLineCommand, _convert2int, _setCellStyle, LINECAPS, LINEJOINS,
-)
+from reportlab.lib.utils import annotateException, IdentStr, flatten, isStr, asNative, strTypes
 from reportlab.platypus.doctemplate import FrameBreak
 from reportlab.lib.utils import annotateException
 from reportlab.platypus import tables
+from reportlab.platypus import flowables
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import Flowable
 from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 from reportlab.pdfbase.pdfmetrics import stringWidth
 
-class FloatToEnd(KeepTogether):
+def _calc_pc(V,avail):
+    '''check list V for percentage or * values
+    1) absolute values go through unchanged
+    2) percentages are used as weights for unconsumed space
+    3) if no None values were seen '*' weights are
+    set equally with unclaimed space
+    otherwise * weights are assigned as None'''
+    R = []
+    r = R.append
+    I = []
+    i = I.append
+    J = []
+    j = J.append
+    s = avail
+    w = n = 0.
+    for v in V:
+        if isinstance(v,strTypes):
+            v = str(v).strip()
+            if not v:
+                v = None
+                n += 1
+            elif v.endswith('%'):
+                v = float(v[:-1])
+                w += v
+                i(len(R))
+            elif v=='*':
+                j(len(R))
+            elif v=='min':
+                j(len(R))
+            else:
+                v = float(v)
+                s -= v
+        elif v is None:
+            n += 1
+        else:
+            s -= v
+        r(v)
+    s = max(0.,s)
+    f = s/max(100.,w)
+    for i in I:
+        R[i] *= f
+        s -= R[i]
+    s = max(0.,s)
+    m = len(J)
+    if m:
+        v =  n==0 and s/m or None
+        for j in J:
+            R[j] = v
+    return R
+
+tables._calc_pc = _calc_pc
+
+class FloatToEnd(flowables.KeepTogether):
      '''
      Float some flowables to the end of the current frame
      from: http://comments.gmane.org/gmane.comp.python.reportlab.user/9234
@@ -41,19 +92,171 @@ class FloatToEnd(KeepTogether):
          W,H = _listWrapOn(self._content,aW,self.canv,dims=dims)
          if self._state==0:
              if H<aH:
-                 return [Spacer(aW,aH-H)]+self._content
+                 return [flowables.Spacer(aW,aH-H)]+self._content
              else:
                  S = self
                  S._state = 1
                  return [self._makeBreak(aH), S]
          else:
              if H>aH: return self._content
-             return [Spacer(aW,aH-H)]+self._content
+             return [flowables.Spacer(aW,aH-H)]+self._content
 
 class Table(tables.Table):
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
         self._user_col_widths = self._colWidths.copy()
+
+    def _calcPreliminaryWidths(self, availWidth):
+        """Fallback algorithm for when main one fails.
+
+        Where exact width info not given but things like
+        paragraphs might be present, do a preliminary scan
+        and assign some best-guess values."""
+
+        W = list(self._argW) # _calc_pc(self._argW,availWidth)
+        verbose = 0
+        totalDefined = 0.0
+        percentDefined = 0
+        percentTotal = 0
+        numberUndefined = 0
+        numberGreedyUndefined = 0
+        for w in W:
+            if w is None:
+                numberUndefined += 1
+            elif w == '*':
+                numberUndefined += 1
+                numberGreedyUndefined += 1
+            elif w == 'min':
+                numberUndefined += 1
+                numberGreedyUndefined += 1
+            elif tables._endswith(w,'%'):
+                percentDefined += 1
+                percentTotal += float(w[:-1])
+            else:
+                assert isinstance(w,(int,float))
+                totalDefined = totalDefined + w
+
+        #check columnwise in each None column to see if they are sizable.
+        given = []
+        sizeable = []
+        unsizeable = []
+        minimums = {}
+        totalMinimum = 0
+        for colNo in xrange(self._ncols):
+            w = W[colNo]
+            if w is None or w=='*' or w=='min' or tables._endswith(w,'%'):
+                siz = 1
+                final = 0
+                for rowNo in xrange(self._nrows):
+                    value = self._cellvalues[rowNo][colNo]
+                    style = self._cellStyles[rowNo][colNo]
+                    pad = style.leftPadding+style.rightPadding
+                    new = self._elementWidth(value,style)
+                    if new:
+                        new += pad
+                    else:
+                        new = pad
+                    new += style.leftPadding+style.rightPadding
+                    final = max(final, new)
+                    siz = siz and self._canGetWidth(value) # irrelevant now?
+                if siz:
+                    sizeable.append(colNo)
+                else:
+                    unsizeable.append(colNo)
+                minimums[colNo] = final
+                totalMinimum += final
+            else:
+                given.append(colNo)
+        if len(given) == self._ncols:
+            return
+
+        # how much width is left:
+        remaining = availWidth - (totalMinimum + totalDefined)
+        if remaining > 0:
+            # we have some room left; fill it.
+            definedPercentage = (totalDefined/availWidth)*100
+            percentTotal += definedPercentage
+            if numberUndefined and percentTotal < 100:
+                undefined = numberGreedyUndefined or numberUndefined
+                defaultWeight = (100-percentTotal)/undefined
+                percentTotal = 100
+                defaultDesired = (defaultWeight/percentTotal)*availWidth
+            else:
+                defaultWeight = defaultDesired = 1
+            # we now calculate how wide each column wanted to be, and then
+            # proportionately shrink that down to fit the remaining available
+            # space.  A column may not shrink less than its minimum width,
+            # however, which makes this a bit more complicated.
+            desiredWidths = []
+            totalDesired = 0
+            effectiveRemaining = remaining
+            for colNo, minimum in minimums.items():
+                w = W[colNo]
+                if tables._endswith(w,'%'):
+                    desired = (float(w[:-1])/percentTotal)*availWidth
+                elif w == '*':
+                    desired = defaultDesired
+                elif w == 'min':
+                    desired = minimum
+                else:
+                    desired = not numberGreedyUndefined and defaultDesired or 1
+                if desired <= minimum:
+                    W[colNo] = minimum
+                else:
+                    desiredWidths.append(
+                        (desired-minimum, minimum, desired, colNo))
+                    totalDesired += desired
+                    effectiveRemaining += minimum
+            if desiredWidths: # else we're done
+                # let's say we have two variable columns.  One wanted
+                # 88 points, and one wanted 264 points.  The first has a
+                # minWidth of 66, and the second of 55.  We have 71 points
+                # to divide up in addition to the totalMinimum (i.e.,
+                # remaining==71).  Our algorithm tries to keep the proportion
+                # of these variable columns.
+                #
+                # To do this, we add up the minimum widths of the variable
+                # columns and the remaining width.  That's 192.  We add up the
+                # totalDesired width.  That's 352.  That means we'll try to
+                # shrink the widths by a proportion of 192/352--.545454.
+                # That would make the first column 48 points, and the second
+                # 144 points--adding up to the desired 192.
+                #
+                # Unfortunately, that's too small for the first column.  It
+                # must be 66 points.  Therefore, we go ahead and save that
+                # column width as 88 points.  That leaves (192-88==) 104
+                # points remaining.  The proportion to shrink the remaining
+                # column is (104/264), which, multiplied  by the desired
+                # width of 264, is 104: the amount assigned to the remaining
+                # column.
+                proportion = effectiveRemaining/totalDesired
+                # we sort the desired widths by difference between desired and
+                # and minimum values, a value called "disappointment" in the
+                # code.  This means that the columns with a bigger
+                # disappointment will have a better chance of getting more of
+                # the available space.
+                desiredWidths.sort()
+                finalSet = []
+                for disappointment, minimum, desired, colNo in desiredWidths:
+                    adjusted = proportion * desired
+                    if adjusted < minimum:
+                        W[colNo] = minimum
+                        totalDesired -= desired
+                        effectiveRemaining -= minimum
+                        if totalDesired:
+                            proportion = effectiveRemaining/totalDesired
+                    else:
+                        finalSet.append((minimum, desired, colNo))
+                for minimum, desired, colNo in finalSet:
+                    adjusted = proportion * desired
+                    assert adjusted >= minimum
+                    W[colNo] = adjusted
+        else:
+            for colNo, minimum in minimums.items():
+                W[colNo] = minimum
+        if verbose: print('new widths are:', W)
+        self._argW = self._colWidths = W
+        return W
 
     def _elementWidth(self,v,s):
         if isinstance(v,(list,tuple)):
@@ -105,6 +308,39 @@ class Table(tables.Table):
                         t = 0
             if t>w: w = t   #record a new maximum
         return w
+
+    def _calc(self, availWidth, availHeight):
+        #if hasattr(self,'_width'): return
+
+        #in some cases there are unsizable things in
+        #cells.  If so, apply a different algorithm
+        #and assign some withs in a less (thanks to Gary Poster) dumb way.
+        #this CHANGES the widths array.
+        if (None in self._colWidths or '*' in self._colWidths or 'min' in self._colWidths) and self._hasVariWidthElements():
+            W = self._calcPreliminaryWidths(availWidth) #widths
+        else:
+            W = None
+
+        # need to know which cells are part of spanned
+        # ranges, so _calc_height and _calc_width can ignore them
+        # in sizing
+        if self._spanCmds:
+            self._calcSpanRanges()
+            if None in self._argH:
+                self._calc_width(availWidth,W=W)
+
+        if self._nosplitCmds:
+            self._calcNoSplitRanges()
+
+        # calculate the full table height
+        self._calc_height(availHeight,availWidth,W=W)
+
+        # calculate the full table width
+        self._calc_width(availWidth,W=W)
+
+        if self._spanCmds:
+            #now work out the actual rect for each spanned cell from the underlying grid
+            self._calcSpanRects()
 
     def _calc_width(self,availWidth,W=None):
         if getattr(self,'_width_calculated_once',None): return
@@ -164,7 +400,7 @@ class Table(tables.Table):
         elif cmd[0] == 'NOSPLIT':
             # we expect op, start, stop
             self._nosplitCmds.append(cmd)
-        elif _isLineCommand(cmd):
+        elif tables._isLineCommand(cmd):
             # we expect op, start, stop, weight, colour, cap, dashes, join
             cmd = list(cmd)
             if len(cmd)<5: raise ValueError('bad line command '+str(cmd))
@@ -173,7 +409,7 @@ class Table(tables.Table):
             if len(cmd)<6:
                 cmd.append(1)
             else:
-                cap = _convert2int(cmd[5], LINECAPS, 0, 2, 'cap', cmd)
+                cap = tables._convert2int(cmd[5], tables.LINECAPS, 0, 2, 'cap', cmd)
                 cmd[5] = cap
 
             #dashes at index 6 - this is a dash array:
@@ -182,7 +418,7 @@ class Table(tables.Table):
             #join mode at index 7 - can be str or numeric, look up as for caps
             if len(cmd)<8: cmd.append(1)
             else:
-                join = _convert2int(cmd[7], LINEJOINS, 0, 2, 'join', cmd)
+                join = tables._convert2int(cmd[7], tables.LINEJOINS, 0, 2, 'join', cmd)
                 cmd[7] = join
 
             #linecount at index 8.  Default is 1, set to 2 for double line.
@@ -212,7 +448,7 @@ class Table(tables.Table):
             if er < 0: er = er + self._nrows
             for i in xrange(sr, er+1):
                 for j in xrange(sc, ec+1):
-                    _setCellStyle(self._cellStyles, i, j, op, values)
+                    tables._setCellStyle(self._cellStyles, i, j, op, values)
 
     def _calcSpanRanges(self):
         """Work out rects for tables which do row and column spanning.
