@@ -92,7 +92,7 @@ class RMLStyles(object):
     def _list_style_update(self, style, node):
         for attr in ['bulletColor']:
             if attr in node.attrib:
-                style.__dict__[attr] = color.get(node.attrib.get(attr))
+                style.__dict__[attr] = color.get(node.attrib.get(attr,''))
         for attr in ['bulletType', 'bulletFontName', 'bulletDetent', 'bulletDir', 'bulletFormat', 'start']:
             if attr in node.attrib:
                 style.__dict__[attr] = node.attrib.get(attr)
@@ -132,7 +132,7 @@ class RMLStyles(object):
                     styles.append(('SPAN', start, stop))
             elif node.tag == 'blockTextColor':
                 styles.append(
-                    ('TEXTCOLOR', start, stop, color.get(str(node.attrib.get('colorName')))))
+                    ('TEXTCOLOR', start, stop, color.get(str(node.attrib.get('colorName','')))))
             elif node.tag == 'blockLeading':
                 styles.append(
                     ('LEADING', start, stop, utils.unit_get(node.attrib.get('length'))))
@@ -154,13 +154,13 @@ class RMLStyles(object):
             elif node.tag == 'blockBackground':
                 if 'colorName' in node.attrib:
                     styles.append(
-                        ('BACKGROUND', start, stop, color.get(node.attrib.get('colorName'))))
+                        ('BACKGROUND', start, stop, color.get(node.attrib.get('colorName',''))))
                 if 'colorsByRow' in node.attrib:
-                    colors = [color.get(x) for x in node.attrib.get('colorsByRow').split(';')]
+                    colors = [color.get(x) for x in node.attrib.get('colorsByRow','').split(';')]
                     styles.append(
                         ('ROWBACKGROUNDS', start, stop,colors ))
                 if 'colorsByCol' in node.attrib:
-                    colors = [color.get(x) for x in node.attrib.get('colorsByCol').split(';')]
+                    colors = [color.get(x) for x in node.attrib.get('colorsByCol','').split(';')]
                     styles.append(
                         ('COLBACKGROUNDS', start, stop,colors ))
             if 'size' in node.attrib:
@@ -175,7 +175,7 @@ class RMLStyles(object):
                 if 'thickness' in node.attrib:
                     thick = float(node.attrib.get('thickness'))
                 styles.append(
-                    (kind, start, stop, thick, color.get(node.attrib.get('colorName'))))
+                    (kind, start, stop, thick, color.get(node.attrib.get('colorName',''))))
         return platypus.tables.TableStyle(styles)
 
     def _list_style_get(self, node):
@@ -489,7 +489,7 @@ class RMLCanvas(object):
             self.path, **utils.attr_get(node, [], {'fill': 'bool', 'stroke': 'bool'}))
 
     def _stroke(self,node):
-        self.canvas.setStrokeColor(color.get(node.attrib.get('color')))
+        self.canvas.setStrokeColor(color.get(node.attrib.get('color','')))
         if 'width' in node.attrib:
             self.canvas.setLineWidth(float(node.attrib.get('width')))
 
@@ -504,7 +504,7 @@ class RMLCanvas(object):
             'lines': self._lines,
             'grid': self._grid,
             'curves': self._curves,
-            'fill': lambda node: self.canvas.setFillColor(color.get(node.attrib.get('color'))),
+            'fill': lambda node: self.canvas.setFillColor(color.get(node.attrib.get('color',''))),
             'stroke':self._stroke,
             'setFont': lambda node: self.canvas.setFont(node.attrib.get('name'), utils.unit_get(node.attrib.get('size'))),
             'place': self._place,
@@ -705,7 +705,8 @@ class RMLFlowable(object):
             yield platypus.XPreformatted(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str', 'dedent': 'int', 'frags': 'int'})))
         elif node.tag == 'pre':
             style = self.styles.para_style_get(node)
-            yield platypus.Preformatted(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str', 'dedent': 'int'})))
+            text = self._textual(node)
+            yield platypus.Preformatted(text, style, **(utils.attr_get(node, [], {'bulletText': 'str', 'dedent': 'int'})))
         elif node.tag == 'illustration':
             yield self._illustration(node)
         elif node.tag == 'blockTable':
@@ -792,7 +793,7 @@ class RMLFlowable(object):
             if 'spaceAfter' in node.attrib:
                 kw['spaceAfter'] = utils.unit_get(node.attrib.get('spaceAfter'))
             if 'color' in node.attrib:
-                kw['color'] = color.get(node.attrib.get('color'))
+                kw['color'] = color.get(node.attrib.get('color',''))
             if 'width' in node.attrib:
                 kw['width'] = node.attrib.get('width')
             if 'dash' in node.attrib:
