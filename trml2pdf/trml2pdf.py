@@ -194,7 +194,7 @@ class RMLStyles(object):
         styles = reportlab.lib.styles.getSampleStyleSheet()
         style = copy.deepcopy(styles["Normal"])
         if "parent" in node.attrib:
-            parent = node.atteib['parent']
+            parent = node.attrib['parent']
             parentStyle = self.styles.get(parent)
             if not parentStyle:
                 raise Exception("parent style = '%s' not found" % parent)
