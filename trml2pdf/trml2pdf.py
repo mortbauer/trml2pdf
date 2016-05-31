@@ -206,11 +206,11 @@ class RMLStyles(object):
     def para_style_get(self, node):
         style = False
         if 'style' in node.attrib:
-            if node.attrib.get('style') in self.styles:
-                style = copy.deepcopy(self.styles[node.attrib.get('style')])
+            stylename = node.attrib.get('style')
+            if stylename in self.styles:
+                style = copy.deepcopy(self.styles[stylename])
             else:
-                sys.stderr.write(
-                    'Warning: style not found, %s - setting default!\n' % (node.attrib.get('style'),))
+                logger.warn('style %s not found, setting default',stylename)
         if not style:
             styles = reportlab.lib.styles.getSampleStyleSheet()
             style = copy.deepcopy(styles['Normal'])
@@ -628,9 +628,12 @@ class RMLFlowable(object):
                 {'repeatRows': 'int', 'repeatCols': 'int','hAlign':'str','vAlign':'str'})
         ))
         if 'style' in node.attrib:
-            table.setStyle(
-                self.styles.table_styles[node.attrib.get('style')])
-        elif style is not None:
+            stylename = node.attrib.get('style')
+            if stylename in self.styles.table_styles:
+                style = self.styles.table_styles[stylename]
+            else:
+                logger.warn('style %s not found',stylename)
+        if style is not None:
             table.setStyle(style)
         return table
 
@@ -811,8 +814,7 @@ class RMLFlowable(object):
                     yield flow
             yield platypus.Indenter(**{x:-1*y for x,y in kw.items()})
         else:
-            logger.warn(
-                'Warning: flowable not yet implemented: %s !\n' % (node.tag,))
+            logger.warn('flowable "%s" not yet implemented',node.tag)
             yield None
 
     def render(self, node_story):
