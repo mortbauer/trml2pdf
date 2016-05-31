@@ -221,6 +221,11 @@ class RMLDoc(object):
 
     def __init__(self, data):
         self.root = etree.fromstring(data)
+        # remove comments
+        for comment in self.root.xpath('//comment()'):
+            parent = comment.getparent()
+            if parent is not None:
+                parent.remove(comment)
         self.filename = self.root.get('filename')
 
     def docinit(self, els):
