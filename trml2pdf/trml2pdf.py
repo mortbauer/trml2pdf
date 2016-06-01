@@ -37,7 +37,7 @@ from pdfrw import PdfReader
 
 from . import color
 from . import utils
-from .elements import FloatToEnd, Table, NumberedCanvas, PdfPage
+from .elements import FloatToEnd, Table, NumberedCanvas, PdfPage, Anchor
 
 logger = logging.getLogger(__name__)
 
@@ -243,7 +243,7 @@ class RMLDoc(object):
                 addMapping(name, 1, 0, name)  # bold
                 addMapping(name, 1, 1, name)  # italic and bold
 
-    def render(self, out):
+    def render(self, out, DocTmpl=None):
         el = self.root.xpath('docinit')
         if el:
             self.docinit(el)
@@ -253,7 +253,7 @@ class RMLDoc(object):
 
         el = self.root.xpath('template')
         if len(el):
-            pt_obj = RMLTemplate(out, el[0], self)
+            pt_obj = RMLTemplate(out, el[0], self,DocTmpl=DocTmpl)
             pt_obj.render(self.root.xpath('story')[0])
         else:
             self.canvas = canvas.Canvas(out)
@@ -281,7 +281,8 @@ class RMLCanvas(object):
                 nnode.text += str(self.canvas.getPageNumber())
             elif n.tag == 'totalPageNumber':
                 if self._totalpagecount is None:
-                    nnode.append(copy.deepcopy(n))
+                    pass
+                    # nnode.append(copy.deepcopy(n))
                 else:
                     nnode.text += str(self._totalpagecount)
             if n.tail:
@@ -745,6 +746,8 @@ class RMLFlowable(object):
             yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
         elif node.tag == 'image':
             yield platypus.Image(node.attrib.get('file'), mask=(250, 255, 250, 255, 250, 255), **(utils.attr_get(node, ['width', 'height', 'preserveAspectRatio', 'anchor'])))
+        elif node.tag == 'bookmark':
+            yield Anchor(node.attrib.get('text'),node.attrib.get('level'))
         elif node.tag == 'pdfpage':
             page_number = node.attrib.get('page')
             if not page_number:
@@ -829,7 +832,7 @@ class RMLFlowable(object):
 
 class RMLTemplate(object):
 
-    def __init__(self, out, node, doc):
+    def __init__(self, out, node, doc, DocTmpl=None):
         if 'pageSize' not in node.attrib:
             pageSize = (utils.unit_get('21cm'), utils.unit_get('29.7cm'))
         else:
@@ -847,16 +850,21 @@ class RMLTemplate(object):
                 'subject': 'str',
                 'application': 'str',
                 'rotation': 'int'})
-        self.doc_tmpl = platypus.BaseDocTemplate(out, pagesize=pageSize, **attributes)
+        if DocTmpl is None:
+            self.doc_tmpl = platypus.BaseDocTemplate(out, pagesize=pageSize, **attributes)
+        else:
+            self.doc_tmpl = DocTmpl(out, pagesize=pageSize, **attributes)
         self.page_templates = []
         self.styles = doc.styles
         self.doc = doc
         pts = node.xpath('pageTemplate')
+        frame_args = ['x1', 'y1', 'width', 'height', 'leftPadding', 'rightPadding', 'bottomPadding', 'topPadding']
+        frame_kwargs = {'id': 'text', 'showBoundary': 'bool'}
         for pt in pts:
             frames = []
             for frame_el in pt.xpath('frame'):
-                frame = platypus.Frame(
-                    **(utils.attr_get(frame_el, ['x1', 'y1', 'width', 'height', 'leftPadding', 'rightPadding', 'bottomPadding', 'topPadding'], {'id': 'text', 'showBoundary': 'bool'})))
+                attribs = utils.attr_get(frame_el, frame_args, frame_kwargs)
+                frame = platypus.Frame(**attribs)
                 frames.append(frame)
             gr = pt.xpath('pageGraphics')
             if len(gr):

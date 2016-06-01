@@ -14,6 +14,7 @@ from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import Flowable
 from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 from reportlab.pdfbase.pdfmetrics import stringWidth
+from reportlab.pdfbase.pdfdoc import PDFObjectReference
 
 def _calc_pc(V,avail):
     '''check list V for percentage or * values
@@ -512,6 +513,86 @@ class NumberedCanvas(Canvas):
         Canvas.__init__(self, *args, **kwargs)
         self._saved_page_states = []
 
+    def bookmarkPage(self, key,
+                      fit="Fit",
+                      left=None,
+                      top=None,
+                      bottom=None,
+                      right=None,
+                      zoom=None
+                      ):
+        """
+        This creates a bookmark to the current page which can
+        be referred to with the given key elsewhere.
+
+        PDF offers very fine grained control over how Acrobat
+        reader is zoomed when people link to this. The default
+        is to keep the user's current zoom settings. the last
+        arguments may or may not be needed depending on the
+        choice of 'fitType'.
+
+        Fit types and the other arguments they use are:
+
+        - XYZ left top zoom - fine grained control.  null
+          or zero for any of the parameters means 'leave
+          as is', so "0,0,0" will keep the reader's settings.
+          NB. Adobe Reader appears to prefer "null" to 0's.
+
+        - Fit - entire page fits in window
+
+        - FitH top - top coord at top of window, width scaled
+          to fit.
+
+        - FitV left - left coord at left of window, height
+          scaled to fit
+
+        - FitR left bottom right top - scale window to fit
+          the specified rectangle
+
+        (question: do we support /FitB, FitBH and /FitBV
+        which are hangovers from version 1.1 / Acrobat 3.0?)"""
+        dest = self._bookmarkReference(key)
+        self._doc.inPage() # try to enable page-only features
+        pageref = self.thisPageRef()
+
+        #None = "null" for PDF
+        if left is None:
+            left = "null"
+        if top is None:
+            top = "null"
+        if bottom is None:
+            bottom = "null"
+        if right is None:
+            right = "null"
+        if zoom is None:
+            zoom = "null"
+
+        if fit == "XYZ":
+            dest.xyz(left,top,zoom)
+        elif fit == "Fit":
+            dest.fit()
+        elif fit == "FitH":
+            dest.fith(top)
+        elif fit == "FitV":
+            dest.fitv(left)
+        elif fit == "FitR":
+            dest.fitr(left,bottom,right,top)
+        #Do we need these (version 1.1 / Acrobat 3 versions)?
+        elif fit == "FitB":
+            dest.fitb()
+        elif fit == "FitBH":
+            dest.fitbh(top)
+        elif fit == "FitBV":
+            dest.fitbv(left)
+        else:
+            raise ValueError("Unknown Fit type %s" % ascii(fit))
+
+        dest.setPage(pageref)
+        return dest
+
+    def thisPageRef(self):
+        return PDFObjectReference('Page%s'%self.getPageNumber())
+
     def showPage(self):
         data = dict(self.__dict__)
         self._saved_page_states.append(data)
@@ -531,8 +612,8 @@ class NumberedCanvas(Canvas):
                     canv.render(container)
                     state['_code'][count] = canv.canvas._code.pop()
             self.__dict__.update(state)
-            Canvas.showPage(self)
-        Canvas.save(self)
+            super().showPage()
+        super().save()
 
 class PdfPage(Flowable):
     _fixedWidth = 1
@@ -589,3 +670,24 @@ class PdfPage(Flowable):
         canv.scale(xscale, yscale)
         canv.doForm(xobj_name)
         canv.restoreState()
+
+class Anchor(flowables.Spacer):
+    '''create a bookmark in the pdf'''
+    _ZEROSIZE=1
+    _SPACETRANSFER = True
+    def __init__(self,name,level):
+        super().__init__(0,0)
+        self._bookmark_name = name
+        self._bookmark_class = level
+        self._level = level
+
+    def __repr__(self):
+        return "%s(%s)" % (self.__class__.__name__,self._bookmark_name)
+
+    def wrap(self,aW,aH):
+        return 0,0
+
+    def draw(self):
+        pass
+
+
