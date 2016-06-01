@@ -37,7 +37,7 @@ from pdfrw import PdfReader
 
 from . import color
 from . import utils
-from .elements import FloatToEnd, Table, NumberedCanvas, PdfPage, Anchor
+from .elements import FloatToEnd, Table, NumberedCanvas, PdfPage, Anchor, TableOfContents
 
 logger = logging.getLogger(__name__)
 
@@ -697,6 +697,13 @@ class RMLFlowable(object):
         if node.tag == 'para':
             style = self.styles.para_style_get(node)
             yield platypus.Paragraph(self._serialize_paragraph_content(node), style)
+        elif node.tag == 'toc':
+            styles = []
+            style_names = node.attrib.get('levelStyles','')
+            for style_name in style_names.split(','):
+                styles.append(self.styles.styles[style_name])
+            toc = TableOfContents(levelStyles=styles)
+            yield toc
         elif node.tag == 'name':
             self.styles.names[
                 node.attrib.get('id')] = node.attrib.get('value')
@@ -879,7 +886,7 @@ class RMLTemplate(object):
     def render(self, node_story):
         r = RMLFlowable(self.doc)
         fis = r.render(node_story)
-        self.doc_tmpl.build(fis,canvasmaker=NumberedCanvas)
+        self.doc_tmpl.multiBuild(fis,canvasmaker=NumberedCanvas)
 
 
 @click.command()

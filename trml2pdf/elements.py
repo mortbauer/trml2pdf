@@ -7,6 +7,7 @@ from reportlab.platypus.flowables import (
 )
 from reportlab.lib.utils import annotateException, IdentStr, flatten, isStr, asNative, strTypes
 from reportlab.platypus.doctemplate import FrameBreak
+from reportlab.platypus import tableofcontents
 from reportlab.lib.utils import annotateException
 from reportlab.platypus import tables
 from reportlab.platypus import flowables
@@ -690,4 +691,27 @@ class Anchor(flowables.Spacer):
     def draw(self):
         pass
 
+class TableOfContents(tableofcontents.TableOfContents):
+    """This creates a formatted table of contents.
 
+    It presumes a correct block of data is passed in.
+    The data block contains a list of (level, text, pageNumber)
+    triplets.  You can supply a paragraph style for each level
+    (starting at zero).
+    Set dotsMinLevel to determine from which level on a line of
+    dots should be drawn between the text and the page number.
+    If dotsMinLevel is set to a negative value, no dotted lines are drawn.
+    """
+
+    def __init__(self,**kwds):
+        self.rightColumnWidth = kwds.pop('rightColumnWidth',72)
+        self.levelStyles = kwds.pop('levelStyles',tableofcontents.defaultLevelStyles)
+        self.tableStyle = kwds.pop('tableStyle',tableofcontents.defaultTableStyle)
+        self.dotsMinLevel = kwds.pop('dotsMinLevel',1)
+        self.formatter = kwds.pop('formatter',None)
+        if kwds: raise ValueError('unexpected keyword arguments %s' % ', '.join(kwds.keys()))
+        if len(self.levelStyles) < 1:
+            self.levelStyles = tableofcontents.defaultLevelStyles
+        self._table = None
+        self._entries = []
+        self._lastEntries = []
