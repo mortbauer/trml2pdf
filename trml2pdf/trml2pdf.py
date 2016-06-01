@@ -752,7 +752,7 @@ class RMLFlowable(object):
             self.styles._para_style_update(style,node)
             yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
         elif node.tag == 'image':
-            yield platypus.Image(node.attrib.get('file'), mask=(250, 255, 250, 255, 250, 255), **(utils.attr_get(node, ['width', 'height', 'preserveAspectRatio', 'anchor'])))
+            yield platypus.Image(node.attrib.get('file'), mask=(250, 255, 250, 255, 250, 255), **(utils.attr_get(node, ['width', 'height', 'kind', 'hAlign','mask','lazy'])))
         elif node.tag == 'bookmark':
             yield Anchor(node.attrib.get('text'),node.attrib.get('level'))
         elif node.tag == 'pdfpage':
