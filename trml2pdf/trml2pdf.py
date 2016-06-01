@@ -281,8 +281,7 @@ class RMLCanvas(object):
                 nnode.text += str(self.canvas.getPageNumber())
             elif n.tag == 'totalPageNumber':
                 if self._totalpagecount is None:
-                    pass
-                    # nnode.append(copy.deepcopy(n))
+                    nnode.append(copy.deepcopy(n))
                 else:
                     nnode.text += str(self._totalpagecount)
             if n.tail:
