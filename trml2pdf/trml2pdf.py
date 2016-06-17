@@ -712,7 +712,8 @@ class RMLFlowable(object):
             yield None
         elif node.tag == 'xpre':
             style = self.styles.para_style_get(node)
-            yield platypus.XPreformatted(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str', 'dedent': 'int', 'frags': 'int'})))
+            raw = self._serialize_paragraph_content(node)
+            yield platypus.XPreformatted(raw, style, **(utils.attr_get(node, [], {'bulletText': 'str', 'dedent': 'int', 'frags': 'int'})))
         elif node.tag == 'pre':
             style = self.styles.para_style_get(node)
             text = self._textual(node)
