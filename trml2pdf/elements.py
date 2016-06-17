@@ -11,6 +11,7 @@ from reportlab.platypus import tableofcontents
 from reportlab.lib.utils import annotateException
 from reportlab.platypus import tables
 from reportlab.platypus import flowables
+from reportlab.platypus import xpreformatted
 from reportlab.pdfgen.canvas import Canvas
 from reportlab.platypus import Flowable
 from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
@@ -715,3 +716,10 @@ class TableOfContents(tableofcontents.TableOfContents):
         self._table = None
         self._entries = []
         self._lastEntries = []
+
+class XPreformatted(xpreformatted.XPreformatted):
+    def minWidth(self):
+        w = 0
+        for frag in self.frags:
+            w += stringWidth(frag.text,frag.fontName,frag.fontSize)
+        return w

@@ -37,7 +37,7 @@ from pdfrw import PdfReader
 
 from . import color
 from . import utils
-from .elements import FloatToEnd, Table, NumberedCanvas, PdfPage, Anchor, TableOfContents
+from .elements import FloatToEnd, Table, NumberedCanvas, PdfPage, Anchor, TableOfContents, XPreformatted
 
 logger = logging.getLogger(__name__)
 
@@ -713,7 +713,7 @@ class RMLFlowable(object):
         elif node.tag == 'xpre':
             style = self.styles.para_style_get(node)
             raw = self._serialize_paragraph_content(node)
-            yield platypus.XPreformatted(raw, style, **(utils.attr_get(node, [], {'bulletText': 'str', 'dedent': 'int', 'frags': 'int'})))
+            yield XPreformatted(raw, style, **(utils.attr_get(node, [], {'bulletText': 'str', 'dedent': 'int', 'frags': 'int'})))
         elif node.tag == 'pre':
             style = self.styles.para_style_get(node)
             text = self._textual(node)
