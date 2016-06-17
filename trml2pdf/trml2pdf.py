@@ -275,7 +275,10 @@ class RMLCanvas(object):
 
     def _textual(self, node):
         nnode = etree.Element(node.tag,**node.attrib)
-        nnode.text = copy.deepcopy(node.text)
+        if node.text is None:
+            nnode.text = ''
+        else:
+            nnode.text = copy.deepcopy(node.text)
         for n in node:
             if n.tag == 'pageNumber':
                 nnode.text += str(self.canvas.getPageNumber())
