@@ -1,3 +1,4 @@
+from math import radians, cos, sin
 from pdfrw import PdfReader
 from pdfrw.buildxobj import pagexobj
 from pdfrw.toreportlab import makerl
@@ -623,15 +624,18 @@ class PdfPage(Flowable):
     which can be included into a ReportLab Platypus document.
     Based on the vectorpdf extension in rst2pdf (http://code.google.com/p/rst2pdf/)
     """
-    def __init__(self, pdfpage, width=None, height=None, kind='direct',hAlign='LEFT'):
+    def __init__(self, pdfpage, width=None, height=None, kind='direct',hAlign='LEFT',rotation=0):
         # If using StringIO buffer, set pointer to begining
         self.xobj = pagexobj(pdfpage)
+        self.rotation = rotation
         self.imageWidth = width
         self.imageHeight = height
         x1, y1, x2, y2 = self.xobj.BBox
         self.hAlign = hAlign
 
-        self._w, self._h = x2 - x1, y2 - y1
+        w, h = x2 - x1, y2 - y1
+        self._w = abs(w * cos(radians(rotation)) + h * sin(radians(rotation)))
+        self._h = abs(w * sin(radians(rotation)) + h * cos(radians(rotation)))
         if not self.imageWidth:
             self.imageWidth = self._w
         if not self.imageHeight:
@@ -666,9 +670,12 @@ class PdfPage(Flowable):
 
         x -= xobj.BBox[0] * xscale
         y -= xobj.BBox[1] * yscale
+        x_ = x * cos(radians(self.rotation)) + (y+self.drawWidth) * sin(radians(self.rotation))
+        y_ = x * sin(radians(self.rotation)) + y * cos(radians(self.rotation))
 
         canv.saveState()
-        canv.translate(x, y)
+        canv.translate(x_, y_)
+        canv.rotate(self.rotation)
         canv.scale(xscale, yscale)
         canv.doForm(xobj_name)
         canv.restoreState()

@@ -765,11 +765,11 @@ class RMLFlowable(object):
             else:
                 page_number = int(page_number)
             page = PdfReader(node.attrib.get('file'), decompress=False).pages[page_number]
-            yield PdfPage(page, **(utils.attr_get(node, ['width', 'height', 'kind','hAlign'])))
+            yield PdfPage(page, **(utils.attr_get(node, ['width', 'height', 'kind','hAlign','rotation'])))
         elif node.tag == 'pdfpages':
             wrapper = node.attrib.get('wrapper')
             pdf = PdfReader(node.attrib.get('file'), decompress=False)
-            options = utils.attr_get(node, ['width', 'height', 'kind','hAlign'])
+            options = utils.attr_get(node, ['width', 'height', 'kind','hAlign','rotation'])
             if wrapper:
                 Wrapper = globals()[wrapper]
                 for page in pdf.pages:
