@@ -670,9 +670,8 @@ class PdfPage(Flowable):
 
         x -= xobj.BBox[0] * xscale
         y -= xobj.BBox[1] * yscale
-        x_ = x * cos(radians(self.rotation)) + (y+self.drawWidth) * sin(radians(self.rotation))
-        y_ = x * sin(radians(self.rotation)) + y * cos(radians(self.rotation))
-
+        x_ = x  + self.drawWidth * sin(radians(self.rotation))
+        y_ = y
         canv.saveState()
         canv.translate(x_, y_)
         canv.rotate(self.rotation)
