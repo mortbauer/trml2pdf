@@ -895,13 +895,18 @@ class RMLTemplate(object):
 @click.command()
 @click.option('-l','--log-level',default='WARNING')
 @click.argument('fromfile')
-@click.argument('tofile')
+@click.option('-o','--tofile')
 def main(fromfile,tofile,log_level):
     logger.setLevel(log_level)
-    with open(os.path.abspath(fromfile),'rb') as i:
+    from_path = os.path.abspath(fromfile)
+    with open(from_path,'rb') as i:
         r = RMLDoc(i.read())
-        with open(os.path.abspath(tofile),'wb') as o:
-            r.render(o)
+    if tofile is None:
+        to_path = '%s.pdf'%os.path.splitext(fromfile)[0]
+    else:
+        to_path = os.path.abspath(tofile)
+    with open(to_path,'wb') as o:
+        r.render(o)
 
 
 if __name__ == "__main__":
