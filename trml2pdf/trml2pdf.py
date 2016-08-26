@@ -37,7 +37,7 @@ from pdfrw import PdfReader
 
 from . import color
 from . import utils
-from .elements import FloatToEnd, Table, NumberedCanvas, PdfPage, Anchor, TableOfContents, XPreformatted
+from .elements import FloatToEnd, Table, NumberedCanvas, PdfPage, Anchor, TableOfContents, XPreformatted, Heading
 
 logger = logging.getLogger(__name__)
 
@@ -192,14 +192,12 @@ class RMLStyles(object):
 
     def _para_style_get(self, node):
         styles = reportlab.lib.styles.getSampleStyleSheet()
-        style = copy.deepcopy(styles["Normal"])
         if "parent" in node.attrib:
             parent = node.attrib['parent']
-            parentStyle = self.styles.get(parent)
-            if not parentStyle:
-                raise Exception("parent style = '%s' not found" % parent)
-            style.__dict__.update(parentStyle.__dict__)
-            style.alignment = parentStyle.alignment
+            style = copy.deepcopy(styles[parent])
+        else:
+            style = copy.deepcopy(styles["Normal"])
+        style.name = node.attrib['name']
         self._para_style_update(style, node)
         return style
 
@@ -733,31 +731,31 @@ class RMLFlowable(object):
         elif node.tag == 'h1':
             style = copy.deepcopy(self.styles.styles['Heading1'])
             self.styles._para_style_update(style,node)
-            yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
+            yield Heading(self._textual(node), style,node.attrib.get('short'))
         elif node.tag == 'h2':
             style = copy.deepcopy(self.styles.styles['Heading2'])
             self.styles._para_style_update(style,node)
-            yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
+            yield Heading(self._textual(node), style,node.attrib.get('short'))
         elif node.tag == 'h3':
             style = copy.deepcopy(self.styles.styles['Heading3'])
             self.styles._para_style_update(style,node)
-            yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
+            yield Heading(self._textual(node), style,node.attrib.get('short'))
         elif node.tag == 'h4':
             style = copy.deepcopy(self.styles.styles['Heading4'])
             self.styles._para_style_update(style,node)
-            yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
+            yield Heading(self._textual(node), style,node.attrib.get('short'))
         elif node.tag == 'h5':
             style = copy.deepcopy(self.styles.styles['Heading5'])
             self.styles._para_style_update(style,node)
-            yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
+            yield Heading(self._textual(node), style,node.attrib.get('short'))
         elif node.tag == 'h6':
             style = copy.deepcopy(self.styles.styles['Heading6'])
             self.styles._para_style_update(style,node)
-            yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
+            yield Heading(self._textual(node), style,node.attrib.get('short'))
         elif node.tag == 'image':
             yield platypus.Image(node.attrib.get('file'), mask=(250, 255, 250, 255, 250, 255), **(utils.attr_get(node, ['width', 'height', 'kind', 'hAlign','mask','lazy'])))
         elif node.tag == 'bookmark':
-            yield Anchor(node.attrib.get('text'),node.attrib.get('level'))
+            yield Anchor(node.attrib.get('class'),node.attrib.get('text'),node.attrib.get('short'))
         elif node.tag == 'pdfpage':
             page_number = node.attrib.get('page')
             if not page_number:

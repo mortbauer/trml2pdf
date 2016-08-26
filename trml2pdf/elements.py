@@ -14,7 +14,7 @@ from reportlab.platypus import tables
 from reportlab.platypus import flowables
 from reportlab.platypus import xpreformatted
 from reportlab.pdfgen.canvas import Canvas
-from reportlab.platypus import Flowable
+from reportlab.platypus import Flowable, Paragraph
 from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfbase.pdfdoc import PDFObjectReference
@@ -683,14 +683,14 @@ class Anchor(flowables.Spacer):
     '''create a bookmark in the pdf'''
     _ZEROSIZE=1
     _SPACETRANSFER = True
-    def __init__(self,name,level):
+    def __init__(self,_class,text,short=None):
         super().__init__(0,0)
-        self._bookmark_name = name
-        self._bookmark_class = level
-        self._level = level
+        self.anchor_class = _class
+        self.text = text
+        self.short_text = short or text
 
     def __repr__(self):
-        return "%s(%s)" % (self.__class__.__name__,self._bookmark_name)
+        return "%s(%s)" % (self.__class__.__name__,self.short_text)
 
     def wrap(self,aW,aH):
         return 0,0
@@ -729,3 +729,8 @@ class XPreformatted(xpreformatted.XPreformatted):
         for frag in self.frags:
             w += stringWidth(frag.text,frag.fontName,frag.fontSize)
         return w
+
+class Heading(Paragraph):
+    def __init__(self,text,style,short=None):
+        super().__init__(text,style)
+        self.short_text = short or text
