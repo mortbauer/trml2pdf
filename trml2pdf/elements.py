@@ -14,7 +14,7 @@ from reportlab.platypus import tables
 from reportlab.platypus import flowables
 from reportlab.platypus import xpreformatted
 from reportlab.pdfgen.canvas import Canvas
-from reportlab.platypus import Flowable, Paragraph
+from reportlab.platypus.paragraph import Paragraph, cleanBlockQuotedText
 from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfbase.pdfdoc import PDFObjectReference
@@ -70,6 +70,52 @@ def _calc_pc(V,avail):
     return R
 
 tables._calc_pc = _calc_pc
+
+class TOCMixin(object):
+    def __init__(self,level=None,short=None,outline=None,toc=None):
+        self._added_numbering = False
+        self.level = level or ''
+        if outline is not None:
+            self.outline = outline
+        elif outline is None and short is None:
+            if hasattr(self,'text'):
+                self.outline = self.text
+            else:
+                self.outline = None
+        elif short is not None:
+            self.outline = short
+        if toc is not None:
+            self.toc = toc
+        elif toc is None and short is None:
+            if hasattr(self,'text'):
+                self.toc = self.text
+            else:
+                self.toc = None
+        elif short is not None:
+            self.toc = short
+
+    def concat(self,nums,text):
+        if len(nums) == 1:
+            return '{0}. {1}'.format(nums[0],text)
+        else:
+            return '{0} {1}'.format('.'.join(nums),text)
+
+    def add_numbering(self,nums):
+        if not self._added_numbering:
+            self._added_numbering = True
+            if isinstance(self,Paragraph):
+                self._setup(
+                    self.concat(nums,self.text),
+                    self.style,
+                    None,
+                    None,
+                    lambda x:x
+                )
+            if self.toc:
+                self.toc = self.concat(nums,self.toc)
+            if self.outline:
+                self.outline = self.concat(nums,self.outline)
+            self.nums = nums
 
 class FloatToEnd(flowables.KeepTogether):
      '''
@@ -270,7 +316,7 @@ class Table(tables.Table):
                 if ew is None: return None
                 w = max(w,ew)
             return w
-        elif isinstance(v,Flowable) and v._fixedWidth:
+        elif isinstance(v,flowables.Flowable) and v._fixedWidth:
             if hasattr(v, 'width') and isinstance(v.width,(int,float)): return v.width
             if hasattr(v, 'drawWidth') and isinstance(v.drawWidth,(int,float)): return v.drawWidth
         # Even if something is fixedWidth, the attribute to check is not
@@ -618,7 +664,7 @@ class NumberedCanvas(Canvas):
             super().showPage()
         super().save()
 
-class PdfPage(Flowable):
+class PdfPage(flowables.Flowable):
     _fixedWidth = 1
     """PdfImage wraps the first page from a PDF file as a Flowable
     which can be included into a ReportLab Platypus document.
@@ -679,24 +725,35 @@ class PdfPage(Flowable):
         canv.doForm(xobj_name)
         canv.restoreState()
 
-class Anchor(flowables.Spacer):
+class Anchor(TOCMixin,flowables.Spacer):
     '''create a bookmark in the pdf'''
     _ZEROSIZE=1
     _SPACETRANSFER = True
-    def __init__(self,_class,text,short=None):
-        super().__init__(0,0)
-        self.anchor_class = _class
-        self.text = text
-        self.short_text = short or text
+    def __init__(self,key,**kwargs):
+        flowables.Spacer.__init__(self,0,0)
+        TOCMixin.__init__(self,**kwargs)
+        self.key = key
 
     def __repr__(self):
-        return "%s(%s)" % (self.__class__.__name__,self.short_text)
+        return "%s(%s)" % (self.__class__.__name__,self.key)
 
     def wrap(self,aW,aH):
         return 0,0
 
     def draw(self):
         pass
+
+    def drawOn(self, canv, x, y, _sW=0):
+        if _sW > 0 and hasattr(self, 'hAlign'):
+            a = self.hAlign
+            if a in ('CENTER', 'CENTRE', TA_CENTER):
+                x += 0.5*_sW
+            elif a in ('RIGHT', TA_RIGHT):
+                x += _sW
+            elif a not in ('LEFT', TA_LEFT):
+                raise ValueError("Bad hAlign value " + str(a))
+        if self.key:
+            self.canv.bookmarkPage(self.key,fit='XYZ',top=y)
 
 class TableOfContents(tableofcontents.TableOfContents):
     """This creates a formatted table of contents.
@@ -730,7 +787,7 @@ class XPreformatted(xpreformatted.XPreformatted):
             w += stringWidth(frag.text,frag.fontName,frag.fontSize)
         return w
 
-class Heading(Paragraph):
-    def __init__(self,text,style,short=None):
-        super().__init__(text,style)
-        self.short_text = short or text
+class Heading(TOCMixin,Paragraph):
+    def __init__(self,text,style,short=None,toc=None,outline=None):
+        Paragraph.__init__(self,text,style)
+        TOCMixin.__init__(self,short=short,toc=toc,outline=outline,level=style.name)

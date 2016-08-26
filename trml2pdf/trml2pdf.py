@@ -731,31 +731,73 @@ class RMLFlowable(object):
         elif node.tag == 'h1':
             style = copy.deepcopy(self.styles.styles['Heading1'])
             self.styles._para_style_update(style,node)
-            yield Heading(self._textual(node), style,node.attrib.get('short'))
+            yield Heading(
+                self._textual(node),
+                style,
+                short=node.attrib.get('short'),
+                toc=node.attrib.get('toc'),
+                outline=node.attrib.get('outline'),
+            )
         elif node.tag == 'h2':
             style = copy.deepcopy(self.styles.styles['Heading2'])
             self.styles._para_style_update(style,node)
-            yield Heading(self._textual(node), style,node.attrib.get('short'))
+            yield Heading(
+                self._textual(node),
+                style,
+                short=node.attrib.get('short'),
+                toc=node.attrib.get('toc'),
+                outline=node.attrib.get('outline'),
+            )
         elif node.tag == 'h3':
             style = copy.deepcopy(self.styles.styles['Heading3'])
             self.styles._para_style_update(style,node)
-            yield Heading(self._textual(node), style,node.attrib.get('short'))
+            yield Heading(
+                self._textual(node),
+                style,
+                short=node.attrib.get('short'),
+                toc=node.attrib.get('toc'),
+                outline=node.attrib.get('outline'),
+            )
         elif node.tag == 'h4':
             style = copy.deepcopy(self.styles.styles['Heading4'])
             self.styles._para_style_update(style,node)
-            yield Heading(self._textual(node), style,node.attrib.get('short'))
+            yield Heading(
+                self._textual(node),
+                style,
+                short=node.attrib.get('short'),
+                toc=node.attrib.get('toc'),
+                outline=node.attrib.get('outline'),
+            )
         elif node.tag == 'h5':
             style = copy.deepcopy(self.styles.styles['Heading5'])
             self.styles._para_style_update(style,node)
-            yield Heading(self._textual(node), style,node.attrib.get('short'))
+            yield Heading(
+                self._textual(node),
+                style,
+                short=node.attrib.get('short'),
+                toc=node.attrib.get('toc'),
+                outline=node.attrib.get('outline'),
+            )
         elif node.tag == 'h6':
             style = copy.deepcopy(self.styles.styles['Heading6'])
             self.styles._para_style_update(style,node)
-            yield Heading(self._textual(node), style,node.attrib.get('short'))
+            yield Heading(
+                self._textual(node),
+                style,
+                short=node.attrib.get('short'),
+                toc=node.attrib.get('toc'),
+                outline=node.attrib.get('outline'),
+            )
         elif node.tag == 'image':
             yield platypus.Image(node.attrib.get('file'), mask=(250, 255, 250, 255, 250, 255), **(utils.attr_get(node, ['width', 'height', 'kind', 'hAlign','mask','lazy'])))
         elif node.tag == 'bookmark':
-            yield Anchor(node.attrib.get('class'),node.attrib.get('text'),node.attrib.get('short'))
+            yield Anchor(
+                node.attrib.get('key'),
+                short=node.attrib.get('short'),
+                toc=node.attrib.get('tox'),
+                outline=node.attrib.get('outline'),
+                level=node.attrib.get('level'),
+            )
         elif node.tag == 'pdfpage':
             page_number = node.attrib.get('page')
             if not page_number:
