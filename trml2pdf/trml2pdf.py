@@ -191,12 +191,11 @@ class RMLStyles(object):
         return style
 
     def _para_style_get(self, node):
-        styles = reportlab.lib.styles.getSampleStyleSheet()
         if "parent" in node.attrib:
             parent = node.attrib['parent']
-            style = copy.deepcopy(styles[parent])
+            style = copy.deepcopy(self.styles[parent])
         else:
-            style = copy.deepcopy(styles["Normal"])
+            style = copy.deepcopy(self.styles["Normal"])
         style.name = node.attrib['name']
         self._para_style_update(style, node)
         return style
