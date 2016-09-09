@@ -37,7 +37,7 @@ from pdfrw import PdfReader
 
 from . import color
 from . import utils
-from .elements import FloatToEnd, Table, NumberedCanvas, PdfPage, Anchor, TableOfContents, XPreformatted, Heading
+from .elements import FloatToEnd, Table, NumberedCanvas, PdfPage, Anchor, TableOfContents, XPreformatted, Heading, Ref
 
 logger = logging.getLogger(__name__)
 
@@ -696,6 +696,9 @@ class RMLFlowable(object):
         if node.tag == 'para':
             style = self.styles.para_style_get(node)
             yield platypus.Paragraph(self._serialize_paragraph_content(node), style)
+        elif node.tag == 'ref':
+            style = self.styles.para_style_get(node)
+            yield Ref(node.attrib.get('target'),style)
         elif node.tag == 'toc':
             styles = []
             style_names = node.attrib.get('levelStyles','')

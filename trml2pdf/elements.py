@@ -366,7 +366,7 @@ class Table(tables.Table):
         #cells.  If so, apply a different algorithm
         #and assign some withs in a less (thanks to Gary Poster) dumb way.
         #this CHANGES the widths array.
-        if (None in self._colWidths or '*' in self._colWidths or 'min' in self._colWidths) and self._hasVariWidthElements():
+        if None in self._colWidths or '*' in self._colWidths or 'min' in self._colWidths:
             W = self._calcPreliminaryWidths(availWidth) #widths
         else:
             W = None
@@ -791,3 +791,19 @@ class Heading(TOCMixin,Paragraph):
     def __init__(self,text,style,short=None,toc=None,outline=None):
         Paragraph.__init__(self,text,style)
         TOCMixin.__init__(self,short=short,toc=toc,outline=outline,level=style.name)
+
+class Ref(Paragraph):
+    """create a reference """
+    def __init__(self,target,style):
+        Paragraph.__init__(self,target,style)
+        self.target = target
+
+    def resolve(self,text):
+        self._setup(
+            text,
+            self.style,
+            None,
+            None,
+            lambda x:x
+        )
+
