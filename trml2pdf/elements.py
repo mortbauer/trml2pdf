@@ -366,7 +366,7 @@ class Table(tables.Table):
         #cells.  If so, apply a different algorithm
         #and assign some withs in a less (thanks to Gary Poster) dumb way.
         #this CHANGES the widths array.
-        if None in self._colWidths or '*' in self._colWidths or 'min' in self._colWidths:
+        if (None in self._colWidths or '*' in self._colWidths or 'min' in self._colWidths) and self._hasVariWidthElements():
             W = self._calcPreliminaryWidths(availWidth) #widths
         else:
             W = None
