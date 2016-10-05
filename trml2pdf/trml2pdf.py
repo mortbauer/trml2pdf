@@ -422,6 +422,7 @@ class RMLCanvas(object):
                 #     continue
                 args[tag] = utils.unit_get(node.attrib.get(tag))
 
+        args['mask'] = node.get('mask','auto')
         if "preserveAspectRatio" in node.attrib:
             args["preserveAspectRatio"] = True
         if ('width' in args) and ('height' not in args):
