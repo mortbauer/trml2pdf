@@ -793,9 +793,10 @@ class RMLFlowable(object):
             )
         elif node.tag == 'image':
             attrs = utils.attr_get(node, ['width', 'height', 'kind', 'hAlign','mask','lazy'])
+            if 'mask' not in attrs:
+                attrs['mask'] = (250, 255, 250, 255, 250, 255)
             yield platypus.Image(
-                node.attrib.get('file'),
-                mask=(250, 255, 250, 255, 250, 255),**attrs)
+                node.attrib.get('file'),**attrs)
         elif node.tag == 'bookmark':
             yield Anchor(
                 node.attrib.get('key'),
