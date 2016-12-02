@@ -874,6 +874,8 @@ class RMLFlowable(object):
                 for flow in self._flowable(child):
                     yield flow
             yield platypus.Indenter(**{x:-1*y for x,y in kw.items()})
+        elif node.tag.endswith('Template'):
+            pass
         else:
             logger.warn('flowable "%s" not yet implemented',node.tag)
             yield None
@@ -912,9 +914,8 @@ class RMLTemplate(object):
         else:
             self.doc_tmpl = DocTmpl(out, pagesize=pageSize, **attributes)
         self.page_templates = []
-        self.styles = doc.styles
         self.doc = doc
-        pts = node.xpath('pageTemplate')
+        pts = doc.root.xpath('//pageTemplate')
         frame_args = ['x1', 'y1', 'width', 'height', 'leftPadding', 'rightPadding', 'bottomPadding', 'topPadding']
         frame_kwargs = {'id': 'text', 'showBoundary': 'bool'}
         for pt in pts:
