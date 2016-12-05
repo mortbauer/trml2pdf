@@ -250,8 +250,12 @@ class RMLDoc(object):
 
         el = self.root.xpath('template')
         if len(el):
-            pt_obj = RMLTemplate(out, el[0], self,DocTmpl=DocTmpl)
-            pt_obj.render(self.root.xpath('story')[0])
+            doc_tmpl = self.get_template(out, el[0], DocTmpl=DocTmpl)
+            doc_tmpl.addPageTemplates(self.get_page_templates())
+            r = RMLFlowable(self)
+            story = self.root.xpath('story')
+            fis = r.render(story[0])
+            doc_tmpl.multiBuild(fis,canvasmaker=NumberedCanvas)
         else:
             self.canvas = canvas.Canvas(out)
             pd = self.root.xpath('pageDrawing')[0]
@@ -259,6 +263,47 @@ class RMLDoc(object):
             pd_obj.render(pd)
             self.canvas.showPage()
             self.canvas.save()
+
+    def get_template(self,out,node,DocTmpl=None):
+        if 'pageSize' not in node.attrib:
+            pageSize = (utils.unit_get('21cm'), utils.unit_get('29.7cm'))
+        else:
+            ps = [x.strip() for x in node.attrib['pageSize'].replace(')', '').replace(
+                '(', '').split(',')]
+            pageSize = (utils.unit_get(ps[0]), utils.unit_get(ps[1]))
+        attributes = utils.attr_get(
+            node,
+            attrs=['leftMargin', 'rightMargin', 'topMargin', 'bottomMargin'],
+            attrs_dict={
+                'allowSplitting': 'int',
+                'showBoundary': 'bool',
+                'title': 'str',
+                'author': 'str',
+                'subject': 'str',
+                'application': 'str',
+                'rotation': 'int'})
+        if DocTmpl is None:
+            doc_tmpl = platypus.BaseDocTemplate(out, pagesize=pageSize, **attributes)
+        else:
+            doc_tmpl = DocTmpl(out, pagesize=pageSize, **attributes)
+        return doc_tmpl
+
+    def get_page_templates(self):
+        page_templates = []
+        frame_args = ['x1', 'y1', 'width', 'height', 'leftPadding', 'rightPadding', 'bottomPadding', 'topPadding']
+        frame_kwargs = {'id': 'text', 'showBoundary': 'bool'}
+        for pt in self.root.xpath('//pageTemplate'):
+            frames = []
+            for frame_el in pt.xpath('frame'):
+                attribs = utils.attr_get(frame_el, frame_args, frame_kwargs)
+                frame = platypus.Frame(**attribs)
+                frames.append(frame)
+            gr = pt.xpath('pageGraphics')
+            template = platypus.PageTemplate(frames=frames, **utils.attr_get(pt, [], {'id': 'str'}))
+            if len(gr):
+                template.onPage = RMLDraw(gr[0], self).render
+            page_templates.append(template)
+        return page_templates
 
 
 class RMLCanvas(object):
@@ -887,57 +932,6 @@ class RMLFlowable(object):
                 if flow:
                     story.append(flow)
         return story
-
-
-class RMLTemplate(object):
-
-    def __init__(self, out, node, doc, DocTmpl=None):
-        if 'pageSize' not in node.attrib:
-            pageSize = (utils.unit_get('21cm'), utils.unit_get('29.7cm'))
-        else:
-            ps = [x.strip() for x in node.attrib['pageSize'].replace(')', '').replace(
-                '(', '').split(',')]
-            pageSize = (utils.unit_get(ps[0]), utils.unit_get(ps[1]))
-        attributes = utils.attr_get(
-            node,
-            attrs=['leftMargin', 'rightMargin', 'topMargin', 'bottomMargin'],
-            attrs_dict={
-                'allowSplitting': 'int',
-                'showBoundary': 'bool',
-                'title': 'str',
-                'author': 'str',
-                'subject': 'str',
-                'application': 'str',
-                'rotation': 'int'})
-        if DocTmpl is None:
-            self.doc_tmpl = platypus.BaseDocTemplate(out, pagesize=pageSize, **attributes)
-        else:
-            self.doc_tmpl = DocTmpl(out, pagesize=pageSize, **attributes)
-        self.page_templates = []
-        self.doc = doc
-        pts = doc.root.xpath('//pageTemplate')
-        frame_args = ['x1', 'y1', 'width', 'height', 'leftPadding', 'rightPadding', 'bottomPadding', 'topPadding']
-        frame_kwargs = {'id': 'text', 'showBoundary': 'bool'}
-        for pt in pts:
-            frames = []
-            for frame_el in pt.xpath('frame'):
-                attribs = utils.attr_get(frame_el, frame_args, frame_kwargs)
-                frame = platypus.Frame(**attribs)
-                frames.append(frame)
-            gr = pt.xpath('pageGraphics')
-            if len(gr):
-                drw = RMLDraw(gr[0], self.doc)
-                self.page_templates.append(platypus.PageTemplate(
-                    frames=frames, onPage=drw.render, **utils.attr_get(pt, [], {'id': 'str'})))
-            else:
-                self.page_templates.append(
-                    platypus.PageTemplate(frames=frames, **utils.attr_get(pt, [], {'id': 'str'})))
-        self.doc_tmpl.addPageTemplates(self.page_templates)
-
-    def render(self, node_story):
-        r = RMLFlowable(self.doc)
-        fis = r.render(node_story)
-        self.doc_tmpl.multiBuild(fis,canvasmaker=NumberedCanvas)
 
 
 @click.command()
