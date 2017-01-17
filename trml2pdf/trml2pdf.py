@@ -37,7 +37,7 @@ from pdfrw import PdfReader
 
 from . import color
 from . import utils
-from .elements import FloatToEnd, Table, NumberedCanvas, PdfPage, Anchor, TableOfContents, XPreformatted, Heading, Ref
+from .elements import FloatToEnd, Table, NumberedCanvas, PdfPage, Anchor, TableOfContents, XPreformatted, Heading, Ref, ShrinkFrame, FlexFrame
 
 logger = logging.getLogger(__name__)
 
@@ -225,13 +225,13 @@ class RMLDoc(object):
                 parent.remove(comment)
         self.filename = self.root.get('filename')
 
-    def docinit(self, els):
+    def docinit(self, node):
         from reportlab.lib.fonts import addMapping
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
 
-        for node in els:
-            for font in node.xpath('registerFont'):
+        for n  in node:
+            if n.tag == 'registerFont':
                 name = font.attrib.get('fontName')
                 fname = font.attrib.get('fontFile')
                 pdfmetrics.registerFont(TTFont(name, fname))
@@ -243,7 +243,7 @@ class RMLDoc(object):
     def render(self, out, DocTmpl=None):
         el = self.root.xpath('docinit')
         if el:
-            self.docinit(el)
+            self.docinit(el[0])
 
         el = self.root.xpath('stylesheet')
         self.styles = RMLStyles(el)
@@ -286,17 +286,25 @@ class RMLDoc(object):
             doc_tmpl = platypus.BaseDocTemplate(out, pagesize=pageSize, **attributes)
         else:
             doc_tmpl = DocTmpl(out, pagesize=pageSize, **attributes)
+        initialize = node.xpath('//initialize')
+        if len(initialize):
+            self.initialize(doc_tmpl,initialize[0])
         return doc_tmpl
+    
+    def initialize(self,doc_tmpl,node):
+        for n  in node:
+            if n.tag == 'docexec':
+                doc_tmpl.docExec(n.attrib['stmt'],'forever')
 
     def get_page_templates(self):
         page_templates = []
         frame_args = ['x1', 'y1', 'width', 'height', 'leftPadding', 'rightPadding', 'bottomPadding', 'topPadding']
-        frame_kwargs = {'id': 'text', 'showBoundary': 'bool'}
+        frame_kwargs = {'id': 'str', 'showBoundary': 'bool','flex':'str'}
         for pt in self.root.xpath('//pageTemplate'):
             frames = []
             for frame_el in pt.xpath('frame'):
                 attribs = utils.attr_get(frame_el, frame_args, frame_kwargs)
-                frame = platypus.Frame(**attribs)
+                frame = FlexFrame(**attribs)
                 frames.append(frame)
             gr = pt.xpath('pageGraphics')
             template = platypus.PageTemplate(frames=frames, **utils.attr_get(pt, [], {'id': 'str'}))
@@ -329,6 +337,9 @@ class RMLCanvas(object):
                     nnode.append(copy.deepcopy(n))
                 else:
                     nnode.text += str(self._totalpagecount)
+            elif n.tag == 'doceval':
+                r = self.doc_tmpl.docEval(n.attrib.get('expr',''))
+                nnode.text += r
             if n.tail:
                 nnode.text += n.tail
         return nnode
@@ -742,6 +753,15 @@ class RMLFlowable(object):
         if node.tag == 'para':
             style = self.styles.para_style_get(node)
             yield platypus.Paragraph(self._serialize_paragraph_content(node), style)
+        elif node.tag == 'shrinkFrame':
+            yield ShrinkFrame()
+        elif node.tag == 'docpara':
+            style = self.styles.para_style_get(node)
+            expr = node.attrib.get('expr','')
+            yield platypus.flowables.DocPara(expr,style=style)
+        elif node.tag == 'docexec':
+            stmt = node.attrib.get('stmt','')
+            yield platypus.flowables.DocExec(stmt)
         elif node.tag == 'ref':
             style = self.styles.para_style_get(node)
             yield Ref(node.attrib.get('target'),style)

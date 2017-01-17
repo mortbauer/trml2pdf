@@ -11,6 +11,8 @@ from reportlab.platypus.doctemplate import FrameBreak
 from reportlab.platypus import tableofcontents
 from reportlab.lib.utils import annotateException
 from reportlab.platypus import tables
+from reportlab.platypus import frames
+from reportlab.platypus import doctemplate  
 from reportlab.platypus import flowables
 from reportlab.platypus import xpreformatted
 from reportlab.pdfgen.canvas import Canvas
@@ -806,4 +808,29 @@ class Ref(Paragraph):
             None,
             lambda x:x
         )
+
+class ShrinkFrame(doctemplate.FrameActionFlowable):
+    """ shrink frame to the current size
+    """
+    def __init__(self):
+        pass
+
+    def frameAction(self, frame):
+        print('shrink to',frame._y)
+        frame._y1p = frame._y
+        frame._y1 = frame._y1p - frame._bottomPadding
+
+
+class FlexFrame(frames.Frame):
+    def __init__(self,flex=None,**kwargs):
+        super(FlexFrame,self).__init__(**kwargs)
+        self.flex = flex
+
+    def init(self,lastframe):
+        if self.flex is not None:
+            if self.flex == 'vertical':
+                self._height = lastframe._y1 - self._y1
+            self._geom()
+            self._reset()
+
 
