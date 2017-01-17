@@ -819,18 +819,22 @@ class ShrinkFrame(doctemplate.FrameActionFlowable):
         print('shrink to',frame._y)
         frame._y1p = frame._y
         frame._y1 = frame._y1p - frame._bottomPadding
+        frame._shrinked = True
 
 
 class FlexFrame(frames.Frame):
     def __init__(self,flex=None,**kwargs):
         super(FlexFrame,self).__init__(**kwargs)
-        self.flex = flex
+        self._flex = flex
+        self._shrinked = False
 
     def init(self,lastframe):
-        if self.flex is not None:
-            if self.flex == 'vertical':
+        if self._flex is not None and lastframe._shrinked:
+            if self._flex == 'vertical':
                 self._height = lastframe._y1 - self._y1
-            self._geom()
-            self._reset()
-
-
+        elif self._flex == 'vertical_like_last':
+            self._y1 = lastframe._y1
+            self._height = lastframe._height
+        self._geom()
+        self._reset()
+        print(self._flex,self._y1,self._height)
