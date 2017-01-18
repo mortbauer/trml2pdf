@@ -30,6 +30,7 @@ import logging
 from lxml import etree
 import click
 from reportlab import platypus
+from reportlab.platypus import doctemplate
 from reportlab.platypus import para
 import reportlab
 from reportlab.pdfgen import canvas
@@ -37,7 +38,8 @@ from pdfrw import PdfReader
 
 from . import color
 from . import utils
-from .elements import FloatToEnd, Table, NumberedCanvas, PdfPage, Anchor, TableOfContents, XPreformatted, Heading, Ref, ShrinkFrame, FlexFrame
+from . import elements
+from .doctemplate import DocTemplate
 
 logger = logging.getLogger(__name__)
 
@@ -240,7 +242,7 @@ class RMLDoc(object):
                 addMapping(name, 1, 0, name)  # bold
                 addMapping(name, 1, 1, name)  # italic and bold
 
-    def render(self, out, DocTmpl=None):
+    def render(self, out):
         el = self.root.xpath('docinit')
         if el:
             self.docinit(el[0])
@@ -250,12 +252,12 @@ class RMLDoc(object):
 
         el = self.root.xpath('template')
         if len(el):
-            doc_tmpl = self.get_template(out, el[0], DocTmpl=DocTmpl)
+            doc_tmpl = self.get_template(out, el[0], DocTmpl=DocTemplate)
             doc_tmpl.addPageTemplates(self.get_page_templates())
             r = RMLFlowable(self)
             story = self.root.xpath('story')
             fis = r.render(story[0])
-            doc_tmpl.multiBuild(fis,canvasmaker=NumberedCanvas)
+            doc_tmpl.build(fis,canvasmaker=elements.NumberedCanvas)
         else:
             self.canvas = canvas.Canvas(out)
             pd = self.root.xpath('pageDrawing')[0]
@@ -282,6 +284,7 @@ class RMLDoc(object):
                 'subject': 'str',
                 'application': 'str',
                 'rotation': 'int'})
+        attributes['_debug'] = True
         if DocTmpl is None:
             doc_tmpl = platypus.BaseDocTemplate(out, pagesize=pageSize, **attributes)
         else:
@@ -304,13 +307,13 @@ class RMLDoc(object):
             frames = []
             for frame_el in pt.xpath('frame'):
                 attribs = utils.attr_get(frame_el, frame_args, frame_kwargs)
-                frame = FlexFrame(**attribs)
-                frames.append(frame)
+                frames.append(elements.Frame(**attribs))
+            kwargs = utils.attr_get(pt, [], {'id': 'str'})
             gr = pt.xpath('pageGraphics')
-            template = platypus.PageTemplate(frames=frames, **utils.attr_get(pt, [], {'id': 'str'}))
             if len(gr):
-                template.onPage = RMLDraw(gr[0], self).render
-            page_templates.append(template)
+                kwargs['onPage'] = RMLDraw(gr[0], self).render 
+            page_templates.append(
+                    elements.PageTemplate(frames,**kwargs))
         return page_templates
 
 
@@ -679,7 +682,7 @@ class RMLFlowable(object):
                 rowheights = [utils.unit_get(f.strip()) for f in value.split(',')]
             else:
                 rowheights = utils.unit_get(value.strip())
-        table = Table(data=data, colWidths=colwidths, rowHeights=rowheights, **(
+        table = elements.Table(data=data, colWidths=colwidths, rowHeights=rowheights, **(
             utils.attr_get(
                 node, ['splitByRow','spaceBefore','spaceAfter'],
                 {'repeatRows': 'int', 'repeatCols': 'int','hAlign':'str','vAlign':'str'})
@@ -717,7 +720,7 @@ class RMLFlowable(object):
             for flow in self._flowable(child):
                 if flow is not None:
                     content.append(flow)
-        return FloatToEnd(content)
+        return elements.FloatToEnd(content)
 
     def _keeptogether(self,node):
         content = []
@@ -754,7 +757,7 @@ class RMLFlowable(object):
             style = self.styles.para_style_get(node)
             yield platypus.Paragraph(self._serialize_paragraph_content(node), style)
         elif node.tag == 'shrinkFrame':
-            yield ShrinkFrame()
+            yield elements.ShrinkFrame()
         elif node.tag == 'docpara':
             style = self.styles.para_style_get(node)
             expr = node.attrib.get('expr','')
@@ -764,13 +767,13 @@ class RMLFlowable(object):
             yield platypus.flowables.DocExec(stmt)
         elif node.tag == 'ref':
             style = self.styles.para_style_get(node)
-            yield Ref(node.attrib.get('target'),style)
+            yield elements.Ref(node.attrib.get('target'),style)
         elif node.tag == 'toc':
             styles = []
             style_names = node.attrib.get('levelStyles','')
             for style_name in style_names.split(','):
                 styles.append(self.styles.styles[style_name])
-            toc = TableOfContents(levelStyles=styles)
+            toc = elements.TableOfContents(levelStyles=styles)
             yield toc
         elif node.tag == 'name':
             self.styles.names[
@@ -779,7 +782,7 @@ class RMLFlowable(object):
         elif node.tag == 'xpre':
             style = self.styles.para_style_get(node)
             raw = self._serialize_paragraph_content(node)
-            yield XPreformatted(raw, style, **(utils.attr_get(node, [], {'bulletText': 'str', 'dedent': 'int', 'frags': 'int'})))
+            yield elements.XPreformatted(raw, style, **(utils.attr_get(node, [], {'bulletText': 'str', 'dedent': 'int', 'frags': 'int'})))
         elif node.tag == 'pre':
             style = self.styles.para_style_get(node)
             text = self._textual(node)
@@ -799,7 +802,7 @@ class RMLFlowable(object):
         elif node.tag == 'h1':
             style = copy.deepcopy(self.styles.styles['Heading1'])
             self.styles._para_style_update(style,node)
-            yield Heading(
+            yield elements.Heading(
                 self._textual(node),
                 style,
                 short=node.attrib.get('short'),
@@ -809,7 +812,7 @@ class RMLFlowable(object):
         elif node.tag == 'h2':
             style = copy.deepcopy(self.styles.styles['Heading2'])
             self.styles._para_style_update(style,node)
-            yield Heading(
+            yield elements.Heading(
                 self._textual(node),
                 style,
                 short=node.attrib.get('short'),
@@ -819,7 +822,7 @@ class RMLFlowable(object):
         elif node.tag == 'h3':
             style = copy.deepcopy(self.styles.styles['Heading3'])
             self.styles._para_style_update(style,node)
-            yield Heading(
+            yield elements.Heading(
                 self._textual(node),
                 style,
                 short=node.attrib.get('short'),
@@ -829,7 +832,7 @@ class RMLFlowable(object):
         elif node.tag == 'h4':
             style = copy.deepcopy(self.styles.styles['Heading4'])
             self.styles._para_style_update(style,node)
-            yield Heading(
+            yield elements.Heading(
                 self._textual(node),
                 style,
                 short=node.attrib.get('short'),
@@ -839,7 +842,7 @@ class RMLFlowable(object):
         elif node.tag == 'h5':
             style = copy.deepcopy(self.styles.styles['Heading5'])
             self.styles._para_style_update(style,node)
-            yield Heading(
+            yield elements.Heading(
                 self._textual(node),
                 style,
                 short=node.attrib.get('short'),
@@ -849,7 +852,7 @@ class RMLFlowable(object):
         elif node.tag == 'h6':
             style = copy.deepcopy(self.styles.styles['Heading6'])
             self.styles._para_style_update(style,node)
-            yield Heading(
+            yield elements.Heading(
                 self._textual(node),
                 style,
                 short=node.attrib.get('short'),
@@ -863,7 +866,7 @@ class RMLFlowable(object):
             yield platypus.Image(
                 node.attrib.get('file'),**attrs)
         elif node.tag == 'bookmark':
-            yield Anchor(
+            yield elements.Anchor(
                 node.attrib.get('key'),
                 short=node.attrib.get('short'),
                 toc=node.attrib.get('tox'),
@@ -877,7 +880,7 @@ class RMLFlowable(object):
             else:
                 page_number = int(page_number)
             page = PdfReader(node.attrib.get('file'), decompress=False).pages[page_number]
-            yield PdfPage(page, **(utils.attr_get(node, ['width', 'height', 'kind','hAlign','rotation'])))
+            yield elements.PdfPage(page, **(utils.attr_get(node, ['width', 'height', 'kind','hAlign','rotation'])))
         elif node.tag == 'pdfpages':
             wrapper = node.attrib.get('wrapper')
             pdf = PdfReader(node.attrib.get('file'), decompress=False)
@@ -885,10 +888,10 @@ class RMLFlowable(object):
             if wrapper:
                 Wrapper = globals()[wrapper]
                 for page in pdf.pages:
-                    yield Wrapper(PdfPage(page,**options))
+                    yield Wrapper(elements.PdfPage(page,**options))
             else:
                 for page in pdf.pages:
-                    yield PdfPage(page,**options)
+                    yield elements.PdfPage(page,**options)
 
         elif node.tag == 'spacer':
             if 'width' in node.attrib:
@@ -928,17 +931,25 @@ class RMLFlowable(object):
             if 'cAlign' in node.attrib:
                 kw['cAlign'] = node.attrib.get('cAlign')
             yield platypus.flowables.HRFlowable(**kw)
+        elif node.tag == 'multicolumns':
+            kwargs = utils.attr_get(node,[],{'n_columns':'int'})
+            multicomun = elements.MultiColumns(**kwargs)
+            yield multicomun
+            for child in node:
+                for flow in self._flowable(child):
+                    yield flow
+            yield multicomun.negative()
         elif node.tag == 'indent':
             from reportlab.platypus.paraparser import _num
             kw = {}
             for key in ('left','right'):
                 if key in node.attrib:
                     kw[key] = _num(node.attrib.get(key))
-            yield platypus.Indenter(**kw)
+            yield doctemplate.Indenter(**kw)
             for child in node:
                 for flow in self._flowable(child):
                     yield flow
-            yield platypus.Indenter(**{x:-1*y for x,y in kw.items()})
+            yield doctemplate.Indenter(**{x:-1*y for x,y in kw.items()})
         elif node.tag.endswith('Template'):
             pass
         else:
