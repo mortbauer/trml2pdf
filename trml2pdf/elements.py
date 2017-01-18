@@ -816,7 +816,6 @@ class ShrinkFrame(doctemplate.FrameActionFlowable):
         pass
 
     def frameAction(self, frame):
-        print('shrink to',frame._y)
         frame._y1p = frame._y
         frame._y1 = frame._y1p - frame._bottomPadding
         frame._shrinked = True
@@ -837,4 +836,3 @@ class FlexFrame(frames.Frame):
             self._height = lastframe._height
         self._geom()
         self._reset()
-        print(self._flex,self._y1,self._height)
