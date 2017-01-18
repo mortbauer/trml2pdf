@@ -1,3 +1,5 @@
+import copy
+import logging
 from math import radians, cos, sin
 from pdfrw import PdfReader
 from pdfrw.buildxobj import pagexobj
@@ -20,6 +22,8 @@ from reportlab.platypus.paragraph import Paragraph, cleanBlockQuotedText
 from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfbase.pdfdoc import PDFObjectReference
+
+logger = logging.getLogger(__name__)
 
 def _calc_pc(V,avail):
     '''check list V for percentage or * values
@@ -818,17 +822,16 @@ class ShrinkFrame(doctemplate.FrameActionFlowable):
     def frameAction(self, frame):
         frame._y1p = frame._y
         frame._y1 = frame._y1p - frame._bottomPadding
-        frame._shrinked = True
 
 
-class FlexFrame(frames.Frame):
-    def __init__(self,flex=None,**kwargs):
-        super(FlexFrame,self).__init__(**kwargs)
-        self._flex = flex
-        self._shrinked = False
+class Frame(frames.Frame):
+    def __init__(self,**kwargs):
+        self._kwargs = kwargs
+        self._flex = kwargs.pop('flex',None)
+        super(Frame,self).__init__(**kwargs)
 
     def init(self,lastframe):
-        if self._flex is not None and lastframe._shrinked:
+        if self._flex is not None:
             if self._flex == 'vertical':
                 self._height = lastframe._y1 - self._y1
         elif self._flex == 'vertical_like_last':
@@ -836,3 +839,49 @@ class FlexFrame(frames.Frame):
             self._height = lastframe._height
         self._geom()
         self._reset()
+
+    def fresh_duplicate(self):
+        frame = Frame(**self._kwargs)
+        if hasattr(self,'_frameBGs'):
+            frame._frameBGs = self._frameBGs
+        return frame
+
+class PageTemplate(doctemplate.PageTemplate):
+    def __init__(self,frames,**kwargs):
+        super(PageTemplate,self).__init__(frames=frames,**kwargs)
+        self._kwargs = kwargs
+        onPage = kwargs.get('onPage')
+        if onPage is not None:
+            self.onPage = onPage
+
+    def fresh_duplicate(self):
+        logger.debug('create fresh page template')
+        frames = [x.fresh_duplicate() for x in self.frames]
+        print('fresh template extra indents',[x._rightExtraIndent for x in frames])
+        return PageTemplate(frames,**self._kwargs)
+
+class MultiColumns(doctemplate.ActionFlowable):
+    def __init__(self,n_columns=2,ref=None):
+        self.n_columns = n_columns
+        self.available_width = None
+        self.ref = ref
+
+    def apply(self, doc_tmpl):
+        if self.available_width is None and self.ref is None:
+            self.available_width = doc_tmpl.frame._width
+        elif self.available_width is None:
+            self.available_width = self.ref.available_width
+        # doc_tmpl.frame = doc_tmpl.frame.fresh_duplicate()
+        doc_tmpl.frame._width = self.available_width/self.n_columns
+        doc_tmpl.frame._geom()
+        doc_tmpl.frame._reset()
+        for i in range(self.n_columns-1):
+            frame = copy.deepcopy(doc_tmpl.frame)
+            frame._x1 += frame._width
+            frame._geom()
+            frame._reset()
+            doc_tmpl.pageTemplate.frames.append(frame)
+        logger.debug('multicolumn action for {0} extrawidh to {1} '.format(doc_tmpl.pageTemplate.id,doc_tmpl.frame._rightExtraIndent))
+
+    def negative(self):
+        return MultiColumns(n_columns=1,ref=self)

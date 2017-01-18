@@ -13,7 +13,7 @@ from .elements import Anchor, Heading, TOCMixin, Ref
 
 logger = logging.getLogger(__name__)
 
-class CustomDocTemplate(BaseDocTemplate):
+class DocTemplate(BaseDocTemplate):
     def afterInit(self):
         self.seq = Sequencer()
         self.levels = {}
@@ -106,5 +106,3 @@ class CustomDocTemplate(BaseDocTemplate):
             self.notify('TOCEntry', (level-1,flowable.toc, self.page, key))
         if flowable.outline is not None:
             self.canv.addOutlineEntry(flowable.outline, key, level-1, 0)
-
-
