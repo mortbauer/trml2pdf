@@ -5,13 +5,12 @@ from pdfrw import PdfReader
 from pdfrw.buildxobj import pagexobj
 from pdfrw.toreportlab import makerl
 
-from reportlab.platypus.flowables import (
-    _listWrapOn, _flowableSublist, PageBreak, _Container
-)
+from reportlab.pdfbase import pdfdoc
+from reportlab.platypus.flowables import _listWrapOn, _flowableSublist, PageBreak 
 from reportlab.lib.utils import annotateException, IdentStr, flatten, isStr, asNative, strTypes
 from reportlab.platypus.doctemplate import FrameBreak
 from reportlab.platypus import tableofcontents
-from reportlab.lib.utils import annotateException
+from reportlab.lib.utils import annotateException, bytestr
 from reportlab.platypus import tables
 from reportlab.platypus import frames
 from reportlab.platypus import doctemplate  
@@ -76,6 +75,34 @@ def _calc_pc(V,avail):
     return R
 
 tables._calc_pc = _calc_pc
+
+class PDFInfo(pdfdoc.PDFInfo):
+    def __init__(self,custom_metadata=None):
+        super(PDFInfo,self).__init__()
+        self.custom_metadata = {} if custom_metadata is None else custom_metadata
+
+    def digest(self, md5object):
+        # add self information to signature
+        for x in (self.title, self.author, self.subject, self.keywords):
+            md5object.update(bytestr(x))
+        for k,v in self.custom_metadata.items():
+            md5object.update(bytestr(k))
+            md5object.update(bytestr(v))
+
+    def format(self, document):
+        D = {}
+        D["Title"] = pdfdoc.PDFString(self.title)
+        D["Author"] = pdfdoc.PDFString(self.author)
+        D["CreationDate"] = pdfdoc.PDFDate(invariant=self.invariant,dateFormatter=self._dateFormatter)
+        D["Producer"] = pdfdoc.PDFString(self.producer)
+        D["Creator"] = pdfdoc.PDFString(self.creator)
+        D["Subject"] = pdfdoc.PDFString(self.subject)
+        D["Keywords"] = pdfdoc.PDFString(self.keywords)
+        for key,value in self.custom_metadata.items():
+            D[key] = pdfdoc.PDFString(value)
+
+        PD = pdfdoc.PDFDictionary(D)
+        return PD.format(document)
 
 class TOCMixin(object):
     def __init__(self,level=None,short=None,outline=None,toc=None):
@@ -565,7 +592,8 @@ class NumberedCanvas(Canvas):
     special Canvas to have total page number available, take from: https://gist.github.com/k4ml/7061027
     """
     def __init__(self, *args, **kwargs):
-        Canvas.__init__(self, *args, **kwargs)
+        super(NumberedCanvas,self).__init__(*args, **kwargs)
+        self._doc.info = PDFInfo()
         self._saved_page_states = []
 
     def bookmarkPage(self, key,

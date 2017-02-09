@@ -1,5 +1,6 @@
 import logging
 
+from reportlab.pdfgen import canvas
 from reportlab.lib.units import cm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -12,6 +13,7 @@ from reportlab.platypus import doctemplate
 from .elements import Anchor, Heading, TOCMixin, Ref
 
 logger = logging.getLogger(__name__)
+
 
 class DocTemplate(BaseDocTemplate):
     def afterInit(self):
@@ -106,3 +108,35 @@ class DocTemplate(BaseDocTemplate):
             self.notify('TOCEntry', (level-1,flowable.toc, self.page, key))
         if flowable.outline is not None:
             self.canv.addOutlineEntry(flowable.outline, key, level-1, 0)
+
+    def _startBuild(self, filename=None, canvasmaker=canvas.Canvas):
+        self._calc()
+
+        #each distinct pass gets a sequencer
+        self.seq = Sequencer()
+
+        self.canv = canvasmaker(filename or self.filename,
+                                pagesize=self.pagesize,
+                                invariant=self.invariant,
+                                pageCompression=self.pageCompression,
+                                enforceColorSpace=self.enforceColorSpace,
+                                )
+
+        getattr(self.canv,'setEncrypt',lambda x: None)(self.encrypt)
+
+        self.canv._cropMarks = self.cropMarks
+        self.canv.setAuthor(self.author)
+        self.canv.setTitle(self.title)
+        self.canv.setSubject(self.subject)
+        self.canv.setCreator(self.creator)
+        self.canv.setKeywords(self.keywords)
+        self.canv._doc.info.custom_metadata = self.custom_metadata
+
+        if self.displayDocTitle is not None:
+            self.canv.setViewerPreference('DisplayDocTitle',['false','true'][self.displayDocTitle])
+        if self.lang:
+            self.canv.setCatalogEntry('Lang',self.lang)
+
+        if self._onPage:
+            self.canv.setPageCallBack(self._onPage)
+        self.handle_documentBegin()

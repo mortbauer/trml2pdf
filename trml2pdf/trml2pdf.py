@@ -282,13 +282,19 @@ class RMLDoc(object):
                 'title': 'str',
                 'author': 'str',
                 'subject': 'str',
+                'creator': 'str',
                 'application': 'str',
                 'rotation': 'int'})
         attributes['_debug'] = True
+        custom_metadata = {}
+        for key in node.attrib:
+            if key not in attributes:
+                custom_metadata[key] = node.attrib[key]
         if DocTmpl is None:
             doc_tmpl = platypus.BaseDocTemplate(out, pagesize=pageSize, **attributes)
         else:
             doc_tmpl = DocTmpl(out, pagesize=pageSize, **attributes)
+        doc_tmpl.custom_metadata = custom_metadata
         initialize = node.xpath('//initialize')
         if len(initialize):
             self.initialize(doc_tmpl,initialize[0])
