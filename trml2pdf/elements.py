@@ -851,7 +851,6 @@ class ShrinkFrame(doctemplate.FrameActionFlowable):
         frame._y1p = frame._y
         frame._y1 = frame._y1p - frame._bottomPadding
 
-
 class Frame(frames.Frame):
     def __init__(self,**kwargs):
         self._kwargs = kwargs
@@ -888,28 +887,87 @@ class PageTemplate(doctemplate.PageTemplate):
         print('fresh template extra indents',[x._rightExtraIndent for x in frames])
         return PageTemplate(frames,**self._kwargs)
 
-class MultiColumns(doctemplate.ActionFlowable):
-    def __init__(self,n_columns=2,ref=None):
+class MultiColumns(flowables.Flowable):
+
+    def __init__(self,n_columns,children,colspace=10,min_height=100,stretch_last=1.1,shrink_last=True):
+        super(MultiColumns,self).__init__()
         self.n_columns = n_columns
-        self.available_width = None
-        self.ref = ref
+        self.colspace = colspace
+        self.children = children
+        self.min_height = min_height
+        self.stretch_last = stretch_last
+        self.shrink_last = shrink_last
 
-    def apply(self, doc_tmpl):
-        if self.available_width is None and self.ref is None:
-            self.available_width = doc_tmpl.frame._width
-        elif self.available_width is None:
-            self.available_width = self.ref.available_width
-        # doc_tmpl.frame = doc_tmpl.frame.fresh_duplicate()
-        doc_tmpl.frame._width = self.available_width/self.n_columns
-        doc_tmpl.frame._geom()
-        doc_tmpl.frame._reset()
-        for i in range(self.n_columns-1):
-            frame = copy.deepcopy(doc_tmpl.frame)
-            frame._x1 += frame._width
-            frame._geom()
-            frame._reset()
-            doc_tmpl.pageTemplate.frames.append(frame)
-        logger.debug('multicolumn action for {0} extrawidh to {1} '.format(doc_tmpl.pageTemplate.id,doc_tmpl.frame._rightExtraIndent))
+    def duplicate(self,children):
+        new = copy.copy(self)
+        new.children = children
+        return new
 
-    def negative(self):
-        return MultiColumns(n_columns=1,ref=self)
+    def draw(self):
+        x = 0
+        y = 0
+        for i,child in enumerate(self.children):
+            w,h = child.wrap(self.width/self.n_columns,self.height)
+            child.drawOn(self.canv,x,y+self.height-h)
+            if (y - h) < 0:
+                x += self.colwidth+self.colspace
+            else:
+                y -= h
+
+    def wrap(self,availWidth,availHeight):
+        total_height = 0
+        childheights = []
+        childwidths = []
+        for child in self.children:
+            w,h = child.wrap(availWidth/self.n_columns,availHeight)
+            childheights.append(h)
+            childwidths.append(w)
+            total_height += h
+        self.colwidth = max(childwidths)
+        self.width = self.colwidth*self.n_columns+self.colspace*(self.n_columns-1)
+        if total_height/self.n_columns < availHeight:
+            if total_height > self.min_height and len(self.children)<self.n_columns and self.shrink_last:
+                parts = self.split(availWidth,total_height/self.n_columns*self.stretch_last)
+                if len(parts) == 1:
+                    self.children = parts[0].children
+                    w,h = self.wrap(availWidth,availHeight)
+                    self.height = h
+            else:
+                self.height = max(childheights)
+        else:
+            self.height = total_height/self.n_columns
+        return self.width,self.height
+
+    def split(self,availWidth,availHeight):
+        this_elements = []
+        total_height = 0
+        rest = copy.copy(self.children)
+        n_cols = 0
+        while len(rest) and n_cols < self.n_columns:
+            child = rest.pop(0)
+            w,h = child.wrap(availWidth/self.n_columns,availHeight-total_height)
+            parts = child.split(availWidth/self.n_columns,availHeight-total_height)
+            if len(parts) == 0:
+                rest.insert(0,child)
+                n_cols += 1
+                total_height = 0
+            else:
+                while len(parts):
+                    part = parts.pop(0)
+                    w,h = part.wrap(availWidth/self.n_columns,availHeight-total_height)
+                    if (total_height+h)<=availHeight:
+                        this_elements.append(part)
+                        total_height += h
+                    else:
+                        for x in reversed(parts):
+                            rest.insert(0,x)
+                        rest.insert(0,part)
+                        n_cols += 1
+                        total_height = 0
+                        break
+        result = []
+        if len(this_elements):
+            result.append(self.duplicate(this_elements))
+            if len(rest):
+                result.append(self.duplicate(rest))
+        return result 

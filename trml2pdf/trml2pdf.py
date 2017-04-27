@@ -257,6 +257,10 @@ class RMLDoc(object):
             r = RMLFlowable(self)
             story = self.root.xpath('story')
             fis = r.render(story[0])
+            def multibuild_progress(key,data):
+                if key == 'PASS':
+                    print('multibuild_pass',data)
+            # doc_tmpl.setProgressCallBack(multibuild_progress)
             doc_tmpl.multiBuild(fis,canvasmaker=elements.NumberedCanvas)
         else:
             self.canvas = canvas.Canvas(out)
@@ -938,13 +942,19 @@ class RMLFlowable(object):
                 kw['cAlign'] = node.attrib.get('cAlign')
             yield platypus.flowables.HRFlowable(**kw)
         elif node.tag == 'multicolumns':
-            kwargs = utils.attr_get(node,[],{'n_columns':'int'})
-            multicomun = elements.MultiColumns(**kwargs)
-            yield multicomun
+            kwargs = utils.attr_get(node,[],{
+                'n_columns':'int',
+                'stretch_last':'float',
+                'shrink_last':'bool',
+                })
+            if 'colspace' in node.attrib:
+                kwargs['colspace'] = utils.unit_get(node.attrib['colspace'])
+            kwargs['children'] = children = []
             for child in node:
-                for flow in self._flowable(child):
-                    yield flow
-            yield multicomun.negative()
+                for n in self._flowable(child):
+                    children.append(n)
+            multicolumn = elements.MultiColumns(**kwargs)
+            yield multicolumn
         elif node.tag == 'indent':
             from reportlab.platypus.paraparser import _num
             kw = {}

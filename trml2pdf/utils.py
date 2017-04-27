@@ -74,4 +74,6 @@ def attr_get(node, attrs, attrs_dict={}):
                 res[key] = bool_get(node.attrib[key])
             elif attrs_dict[key] == 'int':
                 res[key] = int(node.attrib[key])
+            elif attrs_dict[key] == 'float':
+                res[key] = float(node.attrib[key])
     return res
