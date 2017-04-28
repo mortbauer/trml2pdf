@@ -899,54 +899,68 @@ class MultiColumns(flowables.Flowable):
         self.shrink_last = shrink_last
 
     def duplicate(self,children):
-        new = copy.copy(self)
-        new.children = children
-        return new
+        return MultiColumns(
+                self.n_columns,
+                children,
+                self.colspace,
+                self.min_height,
+                self.stretch_last,
+                self.shrink_last,
+                )
 
     def draw(self):
         x = 0
-        y = 0
+        y = self.height
         for i,child in enumerate(self.children):
-            w,h = child.wrap(self.width/self.n_columns,self.height)
-            child.drawOn(self.canv,x,y+self.height-h)
-            if (y - h) < 0:
+            w,h = child.wrap(self.colwidth,self.height)
+            child.drawOn(self.canv,x,y-h)
+            if (y - h) <= 0:
                 x += self.colwidth+self.colspace
+                y = self.height
             else:
                 y -= h
 
+    def calc_colwidth(self,availWidth):
+        return (availWidth-self.colspace*(self.n_columns-1))/self.n_columns
+
     def wrap(self,availWidth,availHeight):
-        total_height = 0
         childheights = []
         childwidths = []
+        self.colwidth = self.calc_colwidth(availWidth)
+        self.width = availWidth
         for child in self.children:
-            w,h = child.wrap(availWidth/self.n_columns,availHeight)
+            w,h = child.wrap(self.colwidth,availHeight)
             childheights.append(h)
             childwidths.append(w)
-            total_height += h
-        self.colwidth = max(childwidths)
-        self.width = self.colwidth*self.n_columns+self.colspace*(self.n_columns-1)
-        if total_height/self.n_columns < availHeight:
-            if total_height > self.min_height and len(self.children)<self.n_columns and self.shrink_last:
-                parts = self.split(availWidth,total_height/self.n_columns*self.stretch_last)
+        height = max(sum(childheights)/self.n_columns,max(childheights))
+        if height < availHeight:
+            if height > self.min_height and len(self.children)<self.n_columns and self.shrink_last:
+                parts = self.split(availWidth,height*self.stretch_last)
                 if len(parts) == 1:
                     self.children = parts[0].children
                     w,h = self.wrap(availWidth,availHeight)
                     self.height = h
             else:
-                self.height = max(childheights)
+                self.height = sum(childheights)/self.n_columns
         else:
-            self.height = total_height/self.n_columns
+            self.height = height 
         return self.width,self.height
 
     def split(self,availWidth,availHeight):
         this_elements = []
+        sum_height = 0
         total_height = 0
         rest = copy.copy(self.children)
         n_cols = 0
+        c = 0
+        colwidth = self.calc_colwidth(availWidth)
         while len(rest) and n_cols < self.n_columns:
             child = rest.pop(0)
-            w,h = child.wrap(availWidth/self.n_columns,availHeight-total_height)
-            parts = child.split(availWidth/self.n_columns,availHeight-total_height)
+            w,h = child.wrap(colwidth,availHeight-total_height)
+            if (total_height+h)<=availHeight:
+                parts = [child]
+            else:
+                parts = child.split(colwidth,availHeight-total_height)
             if len(parts) == 0:
                 rest.insert(0,child)
                 n_cols += 1
@@ -954,10 +968,12 @@ class MultiColumns(flowables.Flowable):
             else:
                 while len(parts):
                     part = parts.pop(0)
-                    w,h = part.wrap(availWidth/self.n_columns,availHeight-total_height)
+                    w,h = part.wrap(colwidth,availHeight-total_height)
                     if (total_height+h)<=availHeight:
                         this_elements.append(part)
+                        c += 1
                         total_height += h
+                        sum_height += h
                     else:
                         for x in reversed(parts):
                             rest.insert(0,x)
@@ -971,3 +987,17 @@ class MultiColumns(flowables.Flowable):
             if len(rest):
                 result.append(self.duplicate(rest))
         return result 
+
+    def __str__(self):
+        lines = ['{0} {1} with {2} children:'.format(self.__class__,id(self),len(self.children))]
+        for i,child in enumerate(self.children):
+            lines.append('\tchild {0} {1}'.format(i,child.__class__))
+            if hasattr(child,'_cellvalues'):
+                lines.append('length = {0}'.format(len(child._cellvalues)))
+                lines.append('\t\t{0}'.format(child._cellvalues[0]))
+                lines.append('\t\t{0}'.format(child._cellvalues[1]))
+                lines.append('\t\t{0}'.format(child._cellvalues[-1]))
+            elif hasattr(child,'text'):
+                lines.append('\t\t{0}'.format(child.text))
+        return '\n'.join(lines)
+
