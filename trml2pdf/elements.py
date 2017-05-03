@@ -104,52 +104,6 @@ class PDFInfo(pdfdoc.PDFInfo):
         PD = pdfdoc.PDFDictionary(D)
         return PD.format(document)
 
-class TOCMixin(object):
-    def __init__(self,level=None,short=None,outline=None,toc=None):
-        self._added_numbering = False
-        self.level = level or ''
-        if outline is not None:
-            self.outline = outline
-        elif outline is None and short is None:
-            if hasattr(self,'text'):
-                self.outline = self.text
-            else:
-                self.outline = None
-        elif short is not None:
-            self.outline = short
-        if toc is not None:
-            self.toc = toc
-        elif toc is None and short is None:
-            if hasattr(self,'text'):
-                self.toc = self.text
-            else:
-                self.toc = None
-        elif short is not None:
-            self.toc = short
-
-    def concat(self,nums,text):
-        if len(nums) == 1:
-            return '{0}. {1}'.format(nums[0],text)
-        else:
-            return '{0} {1}'.format('.'.join(nums),text)
-
-    def add_numbering(self,nums):
-        if not self._added_numbering:
-            self._added_numbering = True
-            if isinstance(self,Paragraph):
-                self._setup(
-                    self.concat(nums,self.text),
-                    self.style,
-                    None,
-                    None,
-                    lambda x:x
-                )
-            if self.toc:
-                self.toc = self.concat(nums,self.toc)
-            if self.outline:
-                self.outline = self.concat(nums,self.outline)
-            self.nums = nums
-
 class FloatToEnd(flowables.KeepTogether):
      '''
      Float some flowables to the end of the current frame
@@ -759,13 +713,12 @@ class PdfPage(flowables.Flowable):
         canv.doForm(xobj_name)
         canv.restoreState()
 
-class Anchor(TOCMixin,flowables.Spacer):
+class Anchor(flowables.Spacer):
     '''create a bookmark in the pdf'''
     _ZEROSIZE=1
     _SPACETRANSFER = True
-    def __init__(self,key,**kwargs):
+    def __init__(self,key):
         flowables.Spacer.__init__(self,0,0)
-        TOCMixin.__init__(self,**kwargs)
         self.key = key
 
     def __repr__(self):
@@ -778,16 +731,62 @@ class Anchor(TOCMixin,flowables.Spacer):
         pass
 
     def drawOn(self, canv, x, y, _sW=0):
-        if _sW > 0 and hasattr(self, 'hAlign'):
-            a = self.hAlign
-            if a in ('CENTER', 'CENTRE', TA_CENTER):
-                x += 0.5*_sW
-            elif a in ('RIGHT', TA_RIGHT):
-                x += _sW
-            elif a not in ('LEFT', TA_LEFT):
-                raise ValueError("Bad hAlign value " + str(a))
-        if self.key:
-            self.canv.bookmarkPage(self.key,fit='XYZ',top=y)
+        if self.key in self.canv._destinations:
+            dest = self.canv._destinations[self.key]
+            thispage = self.canv.thisPageRef().name
+            different_page = dest.page is not None and dest.page.name != thispage
+            different_pos = (dest.fmt is not None) and abs(dest.fmt.top-y)>1
+            if different_page:
+                logger.warning('anchor "%s" already set to different page %s (now %s)',self.key,dest.page.name,thispage)
+            if different_pos:
+                logger.warning('anchor "%s" already set to different pos %s (now %s)',self.key,dest.fmt.top,y)
+        self.canv.bookmarkPage(self.key,fit='XYZ',top=y)
+
+class incSeq(doctemplate.ActionFlowable):
+    def __init__(self,level):
+        self.level = level
+
+    def __repr__(self):
+        return "%s(%s)" % (self.__class__.__name__,self.level)
+
+    def apply(self,doc_tmpl):
+        doc_tmpl.seq.nextf(self.level)
+        for i in range(self.level+1,6):
+            doc_tmpl.seq.reset(i)
+
+class ToTOC(doctemplate.ActionFlowable):
+    def __init__(self,key,text,level,numbering=True):
+        self.key = key
+        self.text = text
+        self.level = level
+        self.numbering = numbering
+
+    def __repr__(self):
+        return "%s(%s)" % (self.__class__.__name__,self.key)
+
+    def apply(self,doc_tmpl):
+        if self.numbering:
+            text = '{0}. {1}'.format(doc_tmpl.get_numbering(self.level),self.text)
+        else:
+            text = self.text
+        doc_tmpl.notify('TOCEntry', (self.level-1, text, doc_tmpl.page, self.key))
+
+class ToOutline(doctemplate.ActionFlowable):
+    def __init__(self,key,text,level,numbering=True):
+        self.key = key
+        self.text = text
+        self.level = level
+        self.numbering = numbering
+
+    def __repr__(self):
+        return "%s(%s)" % (self.__class__.__name__,self.key)
+
+    def apply(self,doc_tmpl):
+        if self.numbering:
+            text = '{0}. {1}'.format(doc_tmpl.get_numbering(self.level),self.text)
+        else:
+            text = self.text
+        doc_tmpl.canv.addOutlineEntry(text, self.key, self.level-1, 0)
 
 class TableOfContents(tableofcontents.TableOfContents):
     """This creates a formatted table of contents.
@@ -820,11 +819,6 @@ class XPreformatted(xpreformatted.XPreformatted):
         for frag in self.frags:
             w += stringWidth(frag.text,frag.fontName,frag.fontSize)
         return w
-
-class Heading(TOCMixin,Paragraph):
-    def __init__(self,text,style,short=None,toc=None,outline=None):
-        Paragraph.__init__(self,text,style)
-        TOCMixin.__init__(self,short=short,toc=toc,outline=outline,level=style.name)
 
 class Ref(Paragraph):
     """create a reference """
@@ -1000,4 +994,17 @@ class MultiColumns(flowables.Flowable):
             elif hasattr(child,'text'):
                 lines.append('\t\t{0}'.format(child.text))
         return '\n'.join(lines)
+
+class MyIndexing(doctemplate.IndexingFlowable):
+    def isSatisfied(self):
+        return self.runs == 2
+
+    def beforeBuild(self):
+        if not hasattr(self,'runs'):
+            self.runs = 1
+        else:
+            self.runs += 1
+
+    def draw(self):
+        pass
 

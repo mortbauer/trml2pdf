@@ -257,11 +257,8 @@ class RMLDoc(object):
             r = RMLFlowable(self)
             story = self.root.xpath('story')
             fis = r.render(story[0])
-            def multibuild_progress(key,data):
-                if key == 'PASS':
-                    print('multibuild_pass',data)
-            # doc_tmpl.setProgressCallBack(multibuild_progress)
             doc_tmpl.multiBuild(fis,canvasmaker=elements.NumberedCanvas)
+            # doc_tmpl.build(fis,canvasmaker=elements.NumberedCanvas)
         else:
             self.canvas = canvas.Canvas(out)
             pd = self.root.xpath('pageDrawing')[0]
@@ -321,7 +318,7 @@ class RMLDoc(object):
             kwargs = utils.attr_get(pt, [], {'id': 'str'})
             gr = pt.xpath('pageGraphics')
             if len(gr):
-                kwargs['onPage'] = RMLDraw(gr[0], self).render 
+                kwargs['onPageEnd'] = RMLDraw(gr[0], self).render 
             page_templates.append(
                     elements.PageTemplate(frames,**kwargs))
         return page_templates
@@ -350,9 +347,14 @@ class RMLCanvas(object):
                     nnode.append(copy.deepcopy(n))
                 else:
                     nnode.text += str(self._totalpagecount)
-            elif n.tag == 'doceval':
-                r = self.doc_tmpl.docEval(n.attrib.get('expr',''))
-                nnode.text += r
+            elif n.tag == 'docEval':
+                try:
+                    r = self.doc_tmpl.docEval(n.attrib.get('expr',''))
+                    if r is not None:
+                        nnode.text += r
+                except:
+                    logger.exception('docEval failed')
+                    nnode.append(copy.deepcopy(n))
             if n.tail:
                 nnode.text += n.tail
         return nnode
@@ -614,17 +616,17 @@ class RMLFlowable(object):
         self.styles = doc.styles
 
     def _textual(self, node):
-        rc = node.text
+        rc = '' if node.text is None else node.text
         for n in node:
             if n.tag == 'getName':
                 newNode = self.doc.dom.createTextNode(
                     self.styles.names.get(n.attrib.get('id'), 'Unknown name'))
                 node.insertBefore(newNode, n)
                 node.removeChild(n)
-            elif n.tag == 'pageNumber':
-                rc += '<pageNumber/>'  # TODO: change this !
             else:
                 rc += self._textual(n)
+            if n.tail:
+                rc += n.tail
         return rc
 
     def _list(self, node):
@@ -809,66 +811,24 @@ class RMLFlowable(object):
             style = copy.deepcopy(self.styles.styles['Title'])
             self.styles._para_style_update(style,node)
             yield platypus.Paragraph(self._textual(node), style, **(utils.attr_get(node, [], {'bulletText': 'str'})))
-        elif node.tag == 'h1':
-            style = copy.deepcopy(self.styles.styles['Heading1'])
+        elif node.tag in ('h1','h2','h3','h4','h5','h6'):
+            level = int(node.tag[1])
+            yield elements.incSeq(level-1)
+            no_numbering = node.attrib.get('no_numbering')
+            style = copy.deepcopy(self.styles.styles['Heading%s'%(level)])
             self.styles._para_style_update(style,node)
-            yield elements.Heading(
-                self._textual(node),
-                style,
-                short=node.attrib.get('short'),
-                toc=node.attrib.get('toc'),
-                outline=node.attrib.get('outline'),
-            )
-        elif node.tag == 'h2':
-            style = copy.deepcopy(self.styles.styles['Heading2'])
-            self.styles._para_style_update(style,node)
-            yield elements.Heading(
-                self._textual(node),
-                style,
-                short=node.attrib.get('short'),
-                toc=node.attrib.get('toc'),
-                outline=node.attrib.get('outline'),
-            )
-        elif node.tag == 'h3':
-            style = copy.deepcopy(self.styles.styles['Heading3'])
-            self.styles._para_style_update(style,node)
-            yield elements.Heading(
-                self._textual(node),
-                style,
-                short=node.attrib.get('short'),
-                toc=node.attrib.get('toc'),
-                outline=node.attrib.get('outline'),
-            )
-        elif node.tag == 'h4':
-            style = copy.deepcopy(self.styles.styles['Heading4'])
-            self.styles._para_style_update(style,node)
-            yield elements.Heading(
-                self._textual(node),
-                style,
-                short=node.attrib.get('short'),
-                toc=node.attrib.get('toc'),
-                outline=node.attrib.get('outline'),
-            )
-        elif node.tag == 'h5':
-            style = copy.deepcopy(self.styles.styles['Heading5'])
-            self.styles._para_style_update(style,node)
-            yield elements.Heading(
-                self._textual(node),
-                style,
-                short=node.attrib.get('short'),
-                toc=node.attrib.get('toc'),
-                outline=node.attrib.get('outline'),
-            )
-        elif node.tag == 'h6':
-            style = copy.deepcopy(self.styles.styles['Heading6'])
-            self.styles._para_style_update(style,node)
-            yield elements.Heading(
-                self._textual(node),
-                style,
-                short=node.attrib.get('short'),
-                toc=node.attrib.get('toc'),
-                outline=node.attrib.get('outline'),
-            )
+            text = self._textual(node)
+            if 'key' in node.attrib:
+                key = node.attrib.get('key',text)
+            else:
+                key = node.tag+text
+            short = node.attrib.get('short',text)
+            outline = node.attrib.get('outline',short)
+            yield elements.Anchor(key)
+            yield platypus.flowables.DocExec('section%s="%s"'%(level,outline))
+            yield platypus.flowables.DocPara('"{0}. %s".format(doc.get_numbering(%s))'%(text,level),style=style)
+            yield elements.ToTOC(key,node.attrib.get('toc',short),level)
+            yield elements.ToOutline(key,outline,level)
         elif node.tag == 'image':
             attrs = utils.attr_get(node, ['width', 'height', 'kind', 'hAlign','mask','lazy'])
             if 'mask' not in attrs:
@@ -876,13 +836,20 @@ class RMLFlowable(object):
             yield platypus.Image(
                 node.attrib.get('file'),**attrs)
         elif node.tag == 'bookmark':
-            yield elements.Anchor(
-                node.attrib.get('key'),
-                short=node.attrib.get('short'),
-                toc=node.attrib.get('tox'),
-                outline=node.attrib.get('outline'),
-                level=node.attrib.get('level'),
-            )
+            level = int(node.attrib['level'])
+            kwargs = utils.attr_get(node,[],{
+                'no_toc':'bool',
+                'no_numbering':'bool',
+                })
+            if not kwargs.get('no_numbering'): 
+                yield elements.incSeq(level-1)
+            short = node.attrib.get('short')
+            outline = node.attrib.get('outline',short)
+            key = node.attrib.get('key',outline)
+            yield elements.Anchor(key)
+            if not kwargs.get('no_toc'): 
+                yield elements.ToTOC(key,node.attrib.get('toc',short),level,numbering=not kwargs.get('no_numbering'))
+            yield elements.ToOutline(key,outline,level,numbering=not kwargs.get('no_numbering'))
         elif node.tag == 'pdfpage':
             page_number = node.attrib.get('page')
             if not page_number:
@@ -912,6 +879,8 @@ class RMLFlowable(object):
             yield platypus.Spacer(width=width, height=length)
         elif node.tag == 'barCode':
             yield code39.Extended39(self._textual(node))
+        elif node.tag == 'myIndex':
+            yield elements.MyIndexing()
         elif node.tag == 'pageBreak':
             yield platypus.PageBreak()
         elif node.tag == 'condPageBreak':
@@ -986,7 +955,7 @@ class RMLFlowable(object):
 @click.argument('fromfile')
 @click.option('-o','--tofile')
 def main(fromfile,tofile,log_level):
-    logger.setLevel(log_level)
+    logging.basicConfig(level=log_level)
     from_path = os.path.abspath(fromfile)
     with open(from_path,'rb') as i:
         r = RMLDoc(i.read())
