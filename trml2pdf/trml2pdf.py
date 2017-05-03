@@ -846,6 +846,7 @@ class RMLFlowable(object):
             short = node.attrib.get('short')
             outline = node.attrib.get('outline',short)
             key = node.attrib.get('key',outline)
+            yield platypus.flowables.DocExec('section%s="%s"'%(level,outline))
             yield elements.Anchor(key)
             if not kwargs.get('no_toc'): 
                 yield elements.ToTOC(key,node.attrib.get('toc',short),level,numbering=not kwargs.get('no_numbering'))

@@ -68,3 +68,15 @@ class DocTemplate(BaseDocTemplate):
         if self._onPage:
             self.canv.setPageCallBack(self._onPage)
         self.handle_documentBegin()
+        
+    def docEval(self,expr):
+        try:
+            return eval(expr.strip(),{},self._nameSpace)
+        except:
+            logger.exception('docEval failed')
+            # exc = sys.exc_info()[1]
+            # args = list(exc.args)
+            # args[-1] += '\ndocEval %s failed!' % expr
+            # exc.args = tuple(args)
+            # raise
+
