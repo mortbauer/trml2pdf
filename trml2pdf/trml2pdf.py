@@ -218,7 +218,7 @@ class RMLStyles(object):
 
 class RMLDoc(object):
 
-    def __init__(self, data):
+    def __init__(self, data,basepath):
         self.root = etree.fromstring(data)
         # remove comments
         for comment in self.root.xpath('//comment()'):
@@ -226,6 +226,7 @@ class RMLDoc(object):
             if parent is not None:
                 parent.remove(comment)
         self.filename = self.root.get('filename')
+        self.basepath = basepath
 
     def docinit(self, node):
         from reportlab.lib.fonts import addMapping
@@ -300,7 +301,7 @@ class RMLDoc(object):
         if len(initialize):
             self.initialize(doc_tmpl,initialize[0])
         return doc_tmpl
-    
+
     def initialize(self,doc_tmpl,node):
         for n  in node:
             if n.tag == 'docexec':
@@ -318,7 +319,7 @@ class RMLDoc(object):
             kwargs = utils.attr_get(pt, [], {'id': 'str'})
             gr = pt.xpath('pageGraphics')
             if len(gr):
-                kwargs['onPageEnd'] = RMLDraw(gr[0], self).render 
+                kwargs['onPageEnd'] = RMLDraw(gr[0], self).render
             page_templates.append(
                     elements.PageTemplate(frames,**kwargs))
         return page_templates
@@ -841,14 +842,14 @@ class RMLFlowable(object):
                 'no_toc':'bool',
                 'no_numbering':'bool',
                 })
-            if not kwargs.get('no_numbering'): 
+            if not kwargs.get('no_numbering'):
                 yield elements.incSeq(level-1)
             short = node.attrib.get('short')
             outline = node.attrib.get('outline',short)
             key = node.attrib.get('key',outline)
             yield platypus.flowables.DocExec('section%s="%s"'%(level,outline))
             yield elements.Anchor(key)
-            if not kwargs.get('no_toc'): 
+            if not kwargs.get('no_toc'):
                 yield elements.ToTOC(key,node.attrib.get('toc',short),level,numbering=not kwargs.get('no_numbering'))
             yield elements.ToOutline(key,outline,level,numbering=not kwargs.get('no_numbering'))
         elif node.tag == 'pdfpage':
@@ -857,11 +858,17 @@ class RMLFlowable(object):
                 page_number = 0
             else:
                 page_number = int(page_number)
-            page = PdfReader(node.attrib.get('file'), decompress=False).pages[page_number]
+            filepath = node.attrib.get('file')
+            if not os.path.isabs(filepath):
+                filepath = os.path.join(self.doc.basepath,filepath)
+            page = PdfReader(filepath, decompress=False).pages[page_number]
             yield elements.PdfPage(page, **(utils.attr_get(node, ['width', 'height', 'kind','hAlign','rotation'])))
         elif node.tag == 'pdfpages':
             wrapper = node.attrib.get('wrapper')
-            pdf = PdfReader(node.attrib.get('file'), decompress=False)
+            filepath = node.attrib.get('file')
+            if not os.path.isabs(filepath):
+                filepath = os.path.join(self.doc.basepath,filepath)
+            pdf = PdfReader(filepath, decompress=False)
             options = utils.attr_get(node, ['width', 'height', 'kind','hAlign','rotation'])
             if wrapper:
                 Wrapper = globals()[wrapper]
@@ -959,7 +966,7 @@ def main(fromfile,tofile,log_level):
     logging.basicConfig(level=log_level)
     from_path = os.path.abspath(fromfile)
     with open(from_path,'rb') as i:
-        r = RMLDoc(i.read())
+        r = RMLDoc(i.read(),os.path.dirname(from_path))
     if tofile is None:
         to_path = '%s.pdf'%os.path.splitext(fromfile)[0]
     else:
