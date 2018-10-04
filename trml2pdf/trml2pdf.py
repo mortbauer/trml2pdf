@@ -864,17 +864,25 @@ class RMLFlowable(object):
                 page_number = 0
             else:
                 page_number = int(page_number)
-            filepath = node.attrib.get('file')
-            if not os.path.isabs(filepath):
-                filepath = os.path.join(self.doc.basepath,filepath)
-            page = PdfReader(filepath, decompress=False).pages[page_number]
+            if node.text is None:
+                filepath = node.attrib.get('file')
+                if not os.path.isabs(filepath):
+                    filepath = os.path.join(self.doc.basepath,filepath)
+                page = PdfReader(filepath, decompress=False).pages[page_number]
+            else:
+                data = base64.b64decode(node.text.encode('ascii'))
+                page = PdfReader(fdata=data, decompress=False).pages[page_number]
             yield elements.PdfPage(page, **(utils.attr_get(node, ['width', 'height', 'kind','hAlign','rotation'])))
         elif node.tag == 'pdfpages':
             wrapper = node.attrib.get('wrapper')
-            filepath = node.attrib.get('file')
-            if not os.path.isabs(filepath):
-                filepath = os.path.join(self.doc.basepath,filepath)
-            pdf = PdfReader(filepath, decompress=False)
+            if node.text is None:
+                filepath = node.attrib.get('file')
+                if not os.path.isabs(filepath):
+                    filepath = os.path.join(self.doc.basepath,filepath)
+                pdf = PdfReader(filepath, decompress=False)
+            else:
+                data = base64.b64decode(node.text.encode('ascii'))
+                pdf = PdfReader(fdata=data, decompress=False)
             options = utils.attr_get(node, ['width', 'height', 'kind','hAlign','rotation'])
             if wrapper:
                 Wrapper = globals()[wrapper]
