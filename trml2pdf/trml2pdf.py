@@ -25,6 +25,7 @@ import copy
 import os
 import io
 import sys
+import base64
 import logging
 
 from lxml import etree
@@ -475,14 +476,19 @@ class RMLCanvas(object):
     def _image(self, node):
         from six.moves import urllib
         from reportlab.lib.utils import ImageReader
-        try:
-            u = urllib.request.urlopen("file:" + str(node.attrib.get('file')))
-        except:
-            # TODO
-            logger.warn('couldn\'t find image at: %s',node.attrib.get('file'))
-            return
+
+        if node.text is None:
+            try:
+                u = urllib.request.urlopen("file:" + str(node.attrib.get('file')))
+                data = u.read()
+            except:
+                # TODO
+                logger.warn('couldn\'t find image at: %s',node.attrib.get('file'))
+                return
+        else:
+            data = base64.b64decode(node.text.encode('ascii'))
         s = io.BytesIO()
-        s.write(u.read())
+        s.write(data)
         s.seek(0)
         img = ImageReader(s)
         (sx, sy) = img.getSize()
