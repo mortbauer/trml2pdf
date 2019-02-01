@@ -879,7 +879,11 @@ class RMLFlowable(object):
                 filepath = node.attrib.get('file')
                 if not os.path.isabs(filepath):
                     filepath = os.path.join(self.doc.basepath,filepath)
-                pdf = PdfReader(filepath, decompress=False)
+                try:
+                    pdf = PdfReader(filepath, decompress=False)
+                except:
+                    logger.error('Failed to read pdf %s',filepath)
+                    raise
             else:
                 data = base64.b64decode(node.text.encode('ascii'))
                 pdf = PdfReader(fdata=data, decompress=False)

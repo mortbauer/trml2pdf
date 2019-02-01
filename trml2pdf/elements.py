@@ -1,19 +1,19 @@
 import copy
 import logging
 from math import radians, cos, sin
-from pdfrw import PdfReader
+from pdfrw import PdfReader, PageMerge
 from pdfrw.buildxobj import pagexobj
 from pdfrw.toreportlab import makerl
 
 from reportlab.pdfbase import pdfdoc
-from reportlab.platypus.flowables import _listWrapOn, _flowableSublist, PageBreak 
+from reportlab.platypus.flowables import _listWrapOn, _flowableSublist, PageBreak
 from reportlab.lib.utils import annotateException, IdentStr, flatten, isStr, asNative, strTypes
 from reportlab.platypus.doctemplate import FrameBreak
 from reportlab.platypus import tableofcontents
 from reportlab.lib.utils import annotateException, bytestr
 from reportlab.platypus import tables
 from reportlab.platypus import frames
-from reportlab.platypus import doctemplate  
+from reportlab.platypus import doctemplate
 from reportlab.platypus import flowables
 from reportlab.platypus import xpreformatted
 from reportlab.pdfgen.canvas import Canvas
@@ -660,7 +660,8 @@ class PdfPage(flowables.Flowable):
     """
     def __init__(self, pdfpage, width=None, height=None, kind='direct',hAlign='LEFT',rotation=0):
         # If using StringIO buffer, set pointer to begining
-        self.xobj = pagexobj(pdfpage)
+        # fix empty pages with some scanned pdfs, from https://stackoverflow.com/a/43795543/1607448
+        self.xobj = pagexobj(PageMerge().add(pdfpage).render())
         self.rotation = rotation
         self.imageWidth = width
         self.imageHeight = height
@@ -707,6 +708,7 @@ class PdfPage(flowables.Flowable):
         x_ = x  + self.drawWidth * sin(radians(self.rotation))
         y_ = y
         canv.saveState()
+        canv.setPageSize((xobj.BBox[2],xobj.BBox[3]))
         canv.translate(x_, y_)
         canv.rotate(self.rotation)
         canv.scale(xscale, yscale)
@@ -937,7 +939,7 @@ class MultiColumns(flowables.Flowable):
             else:
                 self.height = sum(childheights)/self.n_columns
         else:
-            self.height = height 
+            self.height = height
         return self.width,self.height
 
     def split(self,availWidth,availHeight):
@@ -980,7 +982,7 @@ class MultiColumns(flowables.Flowable):
             result.append(self.duplicate(this_elements))
             if len(rest):
                 result.append(self.duplicate(rest))
-        return result 
+        return result
 
     def __str__(self):
         lines = ['{0} {1} with {2} children:'.format(self.__class__,id(self),len(self.children))]
