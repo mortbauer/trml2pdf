@@ -708,7 +708,7 @@ class PdfPage(flowables.Flowable):
         x_ = x  + self.drawWidth * sin(radians(self.rotation))
         y_ = y
         canv.saveState()
-        canv.setPageSize((xobj.BBox[2],xobj.BBox[3]))
+        # canv.setPageSize((xobj.BBox[2],xobj.BBox[3]))
         canv.translate(x_, y_)
         canv.rotate(self.rotation)
         canv.scale(xscale, yscale)
