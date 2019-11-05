@@ -93,7 +93,7 @@ class PDFInfo(pdfdoc.PDFInfo):
         D = {}
         D["Title"] = pdfdoc.PDFString(self.title)
         D["Author"] = pdfdoc.PDFString(self.author)
-        D["CreationDate"] = pdfdoc.PDFDate(invariant=self.invariant,dateFormatter=self._dateFormatter)
+        D["CreationDate"] = pdfdoc.PDFDate(dateFormatter=self._dateFormatter)
         D["Producer"] = pdfdoc.PDFString(self.producer)
         D["Creator"] = pdfdoc.PDFString(self.creator)
         D["Subject"] = pdfdoc.PDFString(self.subject)
@@ -179,12 +179,12 @@ class Table(tables.Table):
         unsizeable = []
         minimums = {}
         totalMinimum = 0
-        for colNo in xrange(self._ncols):
+        for colNo in range(self._ncols):
             w = W[colNo]
             if w is None or w=='*' or w=='min' or tables._endswith(w,'%'):
                 siz = 1
                 final = 0
-                for rowNo in xrange(self._nrows):
+                for rowNo in range(self._nrows):
                     value = self._cellvalues[rowNo][colNo]
                     style = self._cellStyles[rowNo][colNo]
                     pad = style.leftPadding+style.rightPadding
@@ -483,8 +483,8 @@ class Table(tables.Table):
             if ec < 0: ec = ec + self._ncols
             if sr < 0: sr = sr + self._nrows
             if er < 0: er = er + self._nrows
-            for i in xrange(sr, er+1):
-                for j in xrange(sc, ec+1):
+            for i in range(sr, er+1):
+                for j in range(sc, ec+1):
                     tables._setCellStyle(self._cellStyles, i, j, op, values)
 
     def _calcSpanRanges(self):
@@ -499,8 +499,8 @@ class Table(tables.Table):
         Any cell not in the key is not part of a spanned region
         """
         self._spanRanges = spanRanges = {}
-        for x in xrange(self._ncols):
-            for y in xrange(self._nrows):
+        for x in range(self._ncols):
+            for y in range(self._nrows):
                 spanRanges[x,y] = (x, y, x, y)
         self._colSpanCells = []
         self._rowSpanCells = []
@@ -520,25 +520,25 @@ class Table(tables.Table):
 
             if x0!=x1 or y0!=y1:
                 if x0!=x1: #column span
-                    for y in xrange(y0, y1+1):
-                        for x in xrange(x0,x1+1):
+                    for y in range(y0, y1+1):
+                        for x in range(x0,x1+1):
                             csa((x,y))
                 if y0!=y1: #row span
-                    for y in xrange(y0, y1+1):
-                        for x in xrange(x0,x1+1):
+                    for y in range(y0, y1+1):
+                        for x in range(x0,x1+1):
                             rsa((x,y))
 
-                for y in xrange(y0, y1+1):
-                    for x in xrange(x0,x1+1):
+                for y in range(y0, y1+1):
+                    for x in range(x0,x1+1):
                         spanRanges[x,y] = None
                 # set the main entry
                 if args[0] == 'SPAN':
                     spanRanges[x0,y0] = (x0, y0, x1, y1)
                 elif args[0] == 'COLSPAN':
-                    for i in xrange(x0,x1+1,args[3]):
+                    for i in range(x0,x1+1,args[3]):
                         spanRanges[i,y0] = (i, y0, i+args[3]-1, y1)
                 elif args[0] == 'ROWSPAN':
-                    for i in xrange(y0,y1+1,args[3]):
+                    for i in range(y0,y1+1,args[3]):
                         spanRanges[x0,i] = (x0, i, x1, i+args[3]-1)
 
 class NumberedCanvas(Canvas):
