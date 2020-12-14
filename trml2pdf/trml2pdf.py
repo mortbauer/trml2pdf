@@ -220,7 +220,8 @@ class RMLStyles(object):
 class RMLDoc(object):
 
     def __init__(self, data,basepath):
-        self.root = etree.fromstring(data)
+        parser = etree.XMLParser(encoding='utf-8')
+        self.root = etree.fromstring(data,parser)
         # remove comments
         for comment in self.root.xpath('//comment()'):
             parent = comment.getparent()
