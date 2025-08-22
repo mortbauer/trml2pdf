@@ -49,9 +49,9 @@
      <b><getName id="FileTitle"/></b>
      </para>
      <nextFrame/>
-     <condPageBreak height="144"/><h2>
+     <condPageBreak height="144"/><h1>
          <getName id="ColumnOneHeader"/>
-     </h2>
+     </h1>
      <para>
          This is the contents for <b>column one</b>.
      </para>
@@ -92,9 +92,9 @@
      </para>
      <nextFrame/>
      <condPageBreak height="144"/>
-<h2>
+<h1>
          <getName id="ColumnTwoHeader"/>
-     </h2>
+     </h1>
      <para style="body">
          This is the contents for <i>column two</i>.
      </para>

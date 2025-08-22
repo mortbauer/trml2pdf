@@ -1,12 +1,15 @@
 import os
+import io
 import unittest
 
 from six import text_type
 
+from pathlib import Path
 import trml2pdf  # dev mode: python setup.py develop
 
 
-EXAMPLES_DIR = "../examples"
+ROOT_DIR = Path(__file__).parent.parent
+EXAMPLES_DIR = ROOT_DIR / "examples"
 
 
 # sys.path.append(EXAMPLES_DIR)
@@ -29,8 +32,11 @@ class Test(unittest.TestCase):
             if name.endswith(".rml"):
                 path = name  # '{}/{}'.format(EXAMPLES_DIR, name)
                 print('running: {}'.format(path))
-                output = trml2pdf.parseString(text_type(open(path, "r").read()))
-                self.assertIsNotNone(output)
+                with open(path,'rb') as inputfile:
+                    doc = trml2pdf.RMLDoc(inputfile.read(),path)
+                    output = io.BytesIO()
+                    doc.render(output)
+                    self.assertIsNotNone(output.getvalue())
 
 
 if __name__ == "__main__":

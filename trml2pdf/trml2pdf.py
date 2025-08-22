@@ -472,7 +472,7 @@ class RMLCanvas(object):
             dashes = node.attrib.get('dash').split(',')
             for x in range(len(dashes)):
                 dashes[x] = utils.unit_get(dashes[x])
-            self.canvas.setDash(node.attrib.get('dash').split(','))
+            self.canvas.setDash(dashes)
 
     def _image(self, node):
         from six.moves import urllib
@@ -544,7 +544,7 @@ class RMLCanvas(object):
         self.path = self.canvas.beginPath()
         self.path.moveTo(**utils.attr_get(node, ['x', 'y']))
         for n in node:
-            if n.nodeType == node.ELEMENT_NODE:
+            if isinstance(n,etree._Element):
                 if n.tag == 'moveto':
                     vals = utils.text_get(n).split()
                     self.path.moveTo(
@@ -556,7 +556,7 @@ class RMLCanvas(object):
                         while len(pos) < 6:
                             pos.append(utils.unit_get(vals.pop(0)))
                         self.path.curveTo(*pos)
-            elif (n.nodeType == node.TEXT_NODE):
+            elif isinstance(n,str):
                 # Not sure if I must merge all TEXT_NODE ?
                 data = n.data.split()
                 while len(data) > 1:
@@ -627,10 +627,10 @@ class RMLFlowable(object):
         rc = '' if node.text is None else node.text
         for n in node:
             if n.tag == 'getName':
-                newNode = self.doc.dom.createTextNode(
-                    self.styles.names.get(n.attrib.get('id'), 'Unknown name'))
-                node.insertBefore(newNode, n)
-                node.removeChild(n)
+                text_content = self.styles.names.get(n.attrib.get('id'), 'Unknown name')
+                parent = n.getparent()
+                parent.text = (parent.text or "") + text_content
+                node.remove(n)
             else:
                 rc += self._textual(n)
             if n.tail:
@@ -830,11 +830,11 @@ class RMLFlowable(object):
                 key = node.attrib.get('key',text)
             else:
                 key = node.tag+text
-            short = node.attrib.get('short',text)
+            short = node.attrib.get('short',text.strip())
             outline = node.attrib.get('outline',short)
             yield elements.Anchor(key)
             yield platypus.flowables.DocExec('section%s="%s"'%(level,outline))
-            yield platypus.flowables.DocPara('"{0}. %s".format(doc.get_numbering(%s))'%(text,level),style=style)
+            yield platypus.flowables.DocPara('"{0}. %s".format(doc.get_numbering(%s))'%(text.strip(),level),style=style)
             yield elements.ToTOC(key,node.attrib.get('toc',short),level)
             yield elements.ToOutline(key,outline,level)
         elif node.tag == 'image':
